@@ -13,7 +13,8 @@ import {
   Zap,
   Github,
   Database,
-  Sparkles
+  Sparkles,
+  Code
 } from 'lucide-react';
 import {
   FullScreenDialog,
@@ -32,6 +33,7 @@ import { ThemeSettings } from './ThemeSettings';
 import { GeneralSettings } from './GeneralSettings';
 import { IntegrationSettings } from './IntegrationSettings';
 import { AdvancedSettings } from './AdvancedSettings';
+import { EditorSettings } from './EditorSettings';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
@@ -46,7 +48,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications';
+export type AppSection = 'appearance' | 'agent' | 'paths' | 'integrations' | 'updates' | 'notifications' | 'editor';
 
 interface NavItem<T extends string> {
   id: T;
@@ -61,7 +63,8 @@ const appNavItems: NavItem<AppSection>[] = [
   { id: 'paths', label: 'Paths', icon: FolderOpen, description: 'Python and framework paths' },
   { id: 'integrations', label: 'Integrations', icon: Key, description: 'API keys & Claude accounts' },
   { id: 'updates', label: 'Updates', icon: Package, description: 'Auto Claude updates' },
-  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alert preferences' }
+  { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Alert preferences' },
+  { id: 'editor', label: 'Code Editor', icon: Code, description: 'Default editor for worktree review' }
 ];
 
 const projectNavItems: NavItem<ProjectSettingsSection>[] = [
@@ -167,6 +170,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="updates" version={version} />;
       case 'notifications':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="notifications" version={version} />;
+      case 'editor':
+        return <EditorSettings settings={settings} onSettingsChange={setSettings} />;
       default:
         return null;
     }
