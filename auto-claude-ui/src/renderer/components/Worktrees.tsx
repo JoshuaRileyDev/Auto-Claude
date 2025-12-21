@@ -12,12 +12,23 @@ import {
   Minus,
   ChevronRight,
   Check,
-  X
+  X,
+  Code,
+  ChevronDown,
+  Coffee,
+  Terminal
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -38,7 +49,10 @@ import {
 } from './ui/alert-dialog';
 import { useProjectStore } from '../stores/project-store';
 import { useTaskStore } from '../stores/task-store';
+import { useSettingsStore } from '../stores/settings-store';
+import { SUPPORTED_EDITORS } from '../../shared/constants/editors';
 import type { WorktreeListItem, WorktreeMergeResult } from '../../shared/types';
+import type { CodeEditorType } from '../../shared/types/editor';
 
 interface WorktreesProps {
   projectId: string;
@@ -48,10 +62,14 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
   const tasks = useTaskStore((state) => state.tasks);
+  const { settings } = useSettingsStore();
 
   const [worktrees, setWorktrees] = useState<WorktreeListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Editor state
+  const [editorLoading, setEditorLoading] = useState<string | null>(null);
 
   // Merge dialog state
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -95,6 +113,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
     return tasks.find(t => t.specId === specName);
   };
 
+  
   // Handle merge
   const handleMerge = async () => {
     if (!selectedWorktree) return;
@@ -170,6 +189,45 @@ export function Worktrees({ projectId }: WorktreesProps) {
     setWorktreeToDelete(worktree);
     setShowDeleteConfirm(true);
   };
+
+  // Handle open in editor
+  const handleOpenInEditor = async (worktree: WorktreeListItem, editor?: CodeEditorType) => {
+    const task = findTaskForWorktree(worktree.specName);
+    if (!task) {
+      setError('Task not found for this worktree');
+      return;
+    }
+
+    setEditorLoading(editor || 'default');
+
+    try {
+      // For now, show a helpful message that the feature is coming soon
+      // The backend handlers have been implemented but need to be exposed to the frontend API
+      setError('Open in Editor feature is coming soon! Use "Copy Path" to access the worktree folder manually.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open worktree in editor');
+    } finally {
+      setEditorLoading(null);
+    }
+  };
+
+  // Editor options for dropdown
+  const editorOptions = [
+    { id: 'vscode', name: 'Visual Studio Code', icon: Code, description: 'Popular lightweight code editor' },
+    { id: 'vscode-insiders', name: 'VS Code Insiders', icon: Code, description: 'Insiders build of VS Code' },
+    { id: 'sublime', name: 'Sublime Text', icon: Code, description: 'Fast and customizable text editor' },
+    { id: 'xcode', name: 'Xcode', icon: Terminal, description: "Apple's IDE for iOS/macOS development" },
+    { id: 'intellij', name: 'IntelliJ IDEA', icon: Coffee, description: "JetBrains IDE for Java development" },
+    { id: 'webstorm', name: 'WebStorm', icon: Code, description: 'JetBrains IDE for web development' },
+    { id: 'phpstorm', name: 'PhpStorm', icon: Code, description: 'JetBrains IDE for PHP development' },
+    { id: 'pycharm', name: 'PyCharm', icon: Coffee, description: 'JetBrains IDE for Python development' },
+    { id: 'vim', name: 'Vim', icon: Terminal, description: 'Terminal-based text editor' },
+    { id: 'neovim', name: 'Neovim', icon: Terminal, description: 'Modern fork of Vim' },
+    { id: 'emacs', name: 'Emacs', icon: Terminal, description: 'Extensible text editor' },
+    { id: 'atom', name: 'Atom', icon: Code, description: 'Hackable text editor' },
+    { id: 'brackets', name: 'Brackets', icon: Code, description: 'Code editor for web designers' },
+    { id: 'visual-studio', name: 'Visual Studio', icon: Code, description: "Microsoft IDE for .NET development" },
+  ];
 
   if (!selectedProject) {
     return (
@@ -313,6 +371,62 @@ export function Worktrees({ projectId }: WorktreesProps) {
                         <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
                         Copy Path
                       </Button>
+
+                      {/* Open in Editor Section */}
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenInEditor(worktree)}
+                          disabled={!task || editorLoading !== null}
+                        >
+                          {editorLoading === 'default' ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          ) : (
+                            <Code className="h-3.5 w-3.5 mr-1.5" />
+                          )}
+                          Open in Editor
+                        </Button>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!task || editorLoading !== null}
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => handleOpenInEditor(worktree, settings.editorSettings?.defaultCodeEditor)}
+                            >
+                              <Code className="h-3.5 w-3.5 mr-2" />
+                              Open in {SUPPORTED_EDITORS.find(e => e.id === settings.editorSettings?.defaultCodeEditor)?.displayName || 'Default Editor'}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {SUPPORTED_EDITORS.slice(0, 8).map((editor) => {
+                              const isDefault = editor.id === settings.editorSettings?.defaultCodeEditor;
+                              return (
+                                <DropdownMenuItem
+                                  key={editor.id}
+                                  onClick={() => handleOpenInEditor(worktree, editor.id as CodeEditorType)}
+                                  disabled={editorLoading === editor.id}
+                                >
+                                  {editorLoading === editor.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                  ) : (
+                                    <span className="w-3.5 mr-2 text-center">{isDefault ? '✓' : ''}</span>
+                                  )}
+                                  {editor.displayName}
+                                </DropdownMenuItem>
+                              );
+                            })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
                       <Button
                         variant="outline"
                         size="sm"
