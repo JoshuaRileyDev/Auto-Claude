@@ -104,6 +104,12 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
 
+  // Editor operations
+  EDITOR_GET_AVAILABLE: 'editor:getAvailable',
+  EDITOR_DETECT_PROJECT_TYPE: 'editor:detectProjectType',
+  EDITOR_GET_SUGGESTED: 'editor:getSuggested',
+  EDITOR_TEST_LAUNCH: 'editor:testLaunch',
+
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
   DIALOG_CREATE_PROJECT_FOLDER: 'dialog:createProjectFolder',

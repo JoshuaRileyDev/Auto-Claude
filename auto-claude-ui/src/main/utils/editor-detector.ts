@@ -4,7 +4,7 @@
  */
 
 import { existsSync, readdirSync, statSync } from 'fs';
-import path from 'path';
+import * as path from 'path';
 import type { ProjectType, ProjectDetectionResult, CodeEditorType } from '../../shared/types/editor';
 import { PROJECT_DETECTION_PATTERNS, SUPPORTED_EDITORS, getRecommendedEditors } from '../../shared/constants/editors';
 

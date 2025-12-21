@@ -34,7 +34,7 @@ export const DEFAULT_APP_SETTINGS = {
   changelogEmojiLevel: 'none' as const,
   // Editor settings for worktree review
   editorSettings: {
-    defaultCodeEditor: 'vscode',
+    defaultCodeEditor: 'vscode' as const,
     enableSmartDetection: true,
     projectTypeOverrides: {},
     recentEditors: []

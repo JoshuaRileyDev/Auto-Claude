@@ -1,7 +1,7 @@
 import { ipcMain, dialog, app, shell } from 'electron';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
-import path from 'path';
+import * as path from 'path';
 import { is } from '@electron-toolkit/utils';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import type {
@@ -11,6 +11,20 @@ import type {
 import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
 import { getEffectiveVersion } from '../auto-claude-updater';
+import {
+  getAvailableEditors,
+  checkEditorAvailability,
+  testEditorLaunch
+} from '../utils/editor-launcher';
+import {
+  detectProjectType,
+  getSuggestedEditor
+} from '../utils/editor-detector';
+import type {
+  CodeEditorType,
+  EditorAvailabilityResult,
+  ProjectDetectionResult
+} from '../../shared/types/editor';
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
 
@@ -302,6 +316,91 @@ export function registerSettingsHandlers(
     IPC_CHANNELS.SHELL_OPEN_EXTERNAL,
     async (_, url: string): Promise<void> => {
       await shell.openExternal(url);
+    }
+  );
+
+  // ============================================
+  // Editor Operations
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.EDITOR_GET_AVAILABLE,
+    async (): Promise<IPCResult<EditorAvailabilityResult[]>> => {
+      try {
+        const availableEditors = await getAvailableEditors();
+        return { success: true, data: availableEditors };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get available editors'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.EDITOR_DETECT_PROJECT_TYPE,
+    async (_, projectPath: string): Promise<IPCResult<ProjectDetectionResult | null>> => {
+      try {
+        if (!projectPath) {
+          return { success: false, error: 'Project path is required' };
+        }
+
+        const detection = detectProjectType(projectPath);
+        return { success: true, data: detection };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to detect project type'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.EDITOR_GET_SUGGESTED,
+    async (
+      _,
+      projectPath: string,
+      userPreference?: CodeEditorType,
+      projectTypeOverrides?: Partial<Record<string, CodeEditorType>>
+    ): Promise<IPCResult<CodeEditorType | null>> => {
+      try {
+        if (!projectPath) {
+          return { success: false, error: 'Project path is required' };
+        }
+
+        const suggestedEditor = getSuggestedEditor(
+          projectPath,
+          userPreference,
+          projectTypeOverrides as any
+        );
+        return { success: true, data: suggestedEditor };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get suggested editor'
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.EDITOR_TEST_LAUNCH,
+    async (_, editorId: CodeEditorType): Promise<IPCResult<void>> => {
+      try {
+        if (!editorId) {
+          return { success: false, error: 'Editor ID is required' };
+        }
+
+        const testResult = await testEditorLaunch(editorId);
+        return testResult;
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to test editor launch'
+        };
+      }
     }
   );
 }
