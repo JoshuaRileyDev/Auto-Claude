@@ -4,6 +4,7 @@
 
 import type { NotificationSettings } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
+import type { EditorSettings } from './editor';
 
 // Color theme types for multi-theme support
 export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
@@ -106,6 +107,8 @@ export interface AppSettings {
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;
   changelogEmojiLevel?: ChangelogEmojiLevel;
+  // Code editor settings for worktree review
+  editorSettings?: EditorSettings;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
 }
