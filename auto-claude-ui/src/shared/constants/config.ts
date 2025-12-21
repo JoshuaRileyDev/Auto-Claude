@@ -31,7 +31,14 @@ export const DEFAULT_APP_SETTINGS = {
   // Changelog preferences (persisted between sessions)
   changelogFormat: 'keep-a-changelog' as const,
   changelogAudience: 'user-facing' as const,
-  changelogEmojiLevel: 'none' as const
+  changelogEmojiLevel: 'none' as const,
+  // Editor settings for worktree review
+  editorSettings: {
+    defaultCodeEditor: 'vscode',
+    enableSmartDetection: true,
+    projectTypeOverrides: {},
+    recentEditors: []
+  }
 };
 
 // ============================================
