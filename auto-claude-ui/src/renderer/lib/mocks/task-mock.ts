@@ -84,6 +84,17 @@ export const taskMock = {
 
   unwatchTaskLogs: async () => ({ success: true }),
 
+  // Editor operations
+  openInEditor: async (taskId: string, editor?: string) => {
+    console.warn('[Browser Mock] openInEditor called with taskId:', taskId, 'editor:', editor);
+    return {
+      success: true,
+      message: '[Browser Mock] Editor would be opened here',
+      taskId,
+      editor: editor || 'default'
+    };
+  },
+
   // Event Listeners (no-op in browser)
   onTaskProgress: () => () => {},
   onTaskError: () => () => {},
