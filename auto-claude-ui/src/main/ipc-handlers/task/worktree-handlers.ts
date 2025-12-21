@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem } from '../../../shared/types';
-import path from 'path';
+import * as path from 'path';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { execSync, spawn, spawnSync } from 'child_process';
 import { projectStore } from '../../project-store';
@@ -10,6 +10,11 @@ import { getEffectiveSourcePath } from '../../auto-claude-updater';
 import { getProfileEnv } from '../../rate-limit-detector';
 import { findTaskAndProject } from './shared';
 import { findPythonCommand, parsePythonCommand } from '../../python-detector';
+import { detectProjectType, getSuggestedEditor } from '../../utils/editor-detector';
+import { launchEditorForWorktree, checkEditorAvailability } from '../../utils/editor-launcher';
+import { getEditorById, SUPPORTED_EDITORS } from '../../../shared/constants/editors';
+import type { CodeEditorType, EditorLaunchResult } from '../../../shared/types/editor';
+import { platform } from 'os';
 
 /**
  * Register worktree management handlers
@@ -948,6 +953,96 @@ export function registerWorktreeHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to list worktrees'
+        };
+      }
+    }
+  );
+
+  /**
+   * Open a worktree in the specified code editor
+   * Supports smart editor detection and cross-platform launching
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_OPEN_IN_EDITOR,
+    async (_, taskId: string, editor?: CodeEditorType): Promise<IPCResult<EditorLaunchResult>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task not found' };
+        }
+
+        // Per-spec worktree path: .worktrees/{spec-name}/
+        const worktreePath = path.join(project.path, '.worktrees', task.specId);
+
+        if (!existsSync(worktreePath)) {
+          return { success: false, error: 'Worktree not found for this task' };
+        }
+
+        let selectedEditor = editor;
+
+        // If no editor specified, use smart detection
+        if (!selectedEditor) {
+          try {
+            // Try to detect project type and suggest appropriate editor
+            const detected = detectProjectType(worktreePath);
+            if (detected && detected.recommendedEditors.length > 0) {
+              selectedEditor = detected.recommendedEditors[0];
+            } else {
+              // Fallback to VS Code if available
+              const vscodeAvailability = await checkEditorAvailability('vscode');
+              selectedEditor = vscodeAvailability.isAvailable ? 'vscode' : undefined;
+            }
+          } catch (detectionError) {
+            // If detection fails, try VS Code as default
+            const vscodeAvailability = await checkEditorAvailability('vscode');
+            selectedEditor = vscodeAvailability.isAvailable ? 'vscode' : undefined;
+          }
+        }
+
+        // If still no editor selected, try to find any available editor
+        if (!selectedEditor) {
+          const currentPlatform = platform();
+          const availableEditors = SUPPORTED_EDITORS.filter(
+            editor => editor.commands[currentPlatform as keyof typeof editor.commands]
+          );
+
+          if (availableEditors.length === 0) {
+            return { success: false, error: 'No editors available on this platform' };
+          }
+
+          // Try VS Code first, then the first available editor
+          const vscode = availableEditors.find(e => e.id === 'vscode');
+          selectedEditor = vscode?.id || availableEditors[0].id;
+        }
+
+        // Check if the selected editor is available
+        const availability = await checkEditorAvailability(selectedEditor);
+        if (!availability.isAvailable) {
+          return {
+            success: false,
+            error: `Selected editor not available: ${availability.error}`
+          };
+        }
+
+        // Launch the editor with the worktree path
+        const launchResult = await launchEditorForWorktree(worktreePath, selectedEditor);
+
+        if (launchResult.success) {
+          return {
+            success: true,
+            data: launchResult
+          };
+        } else {
+          return {
+            success: false,
+            error: launchResult.error || 'Failed to launch editor'
+          };
+        }
+      } catch (error) {
+        console.error('Failed to open worktree in editor:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to open worktree in editor'
         };
       }
     }
