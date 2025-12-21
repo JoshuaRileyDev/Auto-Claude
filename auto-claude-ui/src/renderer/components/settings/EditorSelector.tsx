@@ -5,7 +5,8 @@ import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { SUPPORTED_EDITORS } from '../../../shared/constants/editors';
 import { useSettingsStore } from '../../stores/settings-store';
-import type { AppSettings, EditorSettings } from '../../../shared/types';
+import type { AppSettings } from '../../../shared/types';
+import type { EditorSettings } from '../../../shared/types/editor';
 
 interface EditorSelectorProps {
   settings: AppSettings;
