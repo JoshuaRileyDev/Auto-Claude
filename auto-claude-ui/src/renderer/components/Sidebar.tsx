@@ -122,9 +122,6 @@ export function Sidebar({
         return;
       }
 
-      // Only handle shortcuts when a project is selected
-      if (!selectedProjectId) return;
-
       // Check for modifier keys - we want plain key presses only
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
@@ -135,6 +132,12 @@ export function Sidebar({
       const matchedItem = allNavItems.find((item) => item.shortcut === key);
 
       if (matchedItem) {
+        // Allow terminals shortcut to work without project selection
+        // Other shortcuts still require project selection
+        if (matchedItem.id !== 'terminals' && !selectedProjectId) {
+          return;
+        }
+
         e.preventDefault();
         onViewChange?.(matchedItem.id);
       }
@@ -271,11 +274,14 @@ export function Sidebar({
     const isActive = activeView === item.id;
     const Icon = item.icon;
 
+    // Allow terminals view to be accessible without project selection
+    const isDisabled = item.id !== 'terminals' && !selectedProjectId;
+
     return (
       <button
         key={item.id}
         onClick={() => handleNavClick(item.id)}
-        disabled={!selectedProjectId}
+        disabled={isDisabled}
         className={cn(
           'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200',
           'hover:bg-accent hover:text-accent-foreground',
