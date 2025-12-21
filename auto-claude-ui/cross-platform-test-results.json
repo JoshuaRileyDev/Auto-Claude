@@ -1,0 +1,150 @@
+{
+  "platform": "darwin",
+  "timestamp": "2025-12-21T16:04:43.030Z",
+  "tests": [
+    {
+      "name": "Platform detection",
+      "passed": true,
+      "details": "Detected: darwin, Valid platforms: darwin, win32, linux",
+      "timestamp": "2025-12-21T16:04:43.033Z"
+    },
+    {
+      "name": "Editor command structure validation",
+      "passed": false,
+      "details": "Notepad++ missing command for darwin",
+      "timestamp": "2025-12-21T16:04:43.033Z"
+    },
+    {
+      "name": "Visual Studio Code availability (absolute path)",
+      "passed": false,
+      "details": "Not found at /Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+      "timestamp": "2025-12-21T16:04:43.033Z"
+    },
+    {
+      "name": "Sublime Text availability (absolute path)",
+      "passed": false,
+      "details": "Not found at /Applications/Sublime Text.app/Contents/SharedSupport/bin/subl",
+      "timestamp": "2025-12-21T16:04:43.033Z"
+    },
+    {
+      "name": "Vim availability (PATH)",
+      "passed": true,
+      "details": "Found in PATH: vim",
+      "timestamp": "2025-12-21T16:04:43.044Z"
+    },
+    {
+      "name": "Xcode availability (absolute path)",
+      "passed": true,
+      "details": "Found at /usr/bin/xcodebuild",
+      "timestamp": "2025-12-21T16:04:43.046Z"
+    },
+    {
+      "name": "Editor availability summary",
+      "passed": true,
+      "details": "2/4 editors available on darwin",
+      "timestamp": "2025-12-21T16:04:43.046Z"
+    },
+    {
+      "name": "Visual Studio Code command building",
+      "passed": true,
+      "details": "Command: /Applications/Visual Studio Code.app/Contents/Resources/app/bin/code, Args: [--, /test/path]",
+      "timestamp": "2025-12-21T16:04:43.046Z"
+    },
+    {
+      "name": "Sublime Text command building",
+      "passed": true,
+      "details": "Command: /Applications/Sublime Text.app/Contents/SharedSupport/bin/subl, Args: [/test/path]",
+      "timestamp": "2025-12-21T16:04:43.046Z"
+    },
+    {
+      "name": "Vim command building",
+      "passed": true,
+      "details": "Command: vim, Args: [/test/path]",
+      "timestamp": "2025-12-21T16:04:43.046Z"
+    },
+    {
+      "name": "Xcode command building",
+      "passed": true,
+      "details": "Command: /usr/bin/xcodebuild, Args: [-open, /test/path]",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Command building summary",
+      "passed": true,
+      "details": "All editor commands built successfully",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Path format validation: code",
+      "passed": true,
+      "details": "Normalized: /Applications/Visual Studio Code.app/Contents/Resources/app/bin/code, Absolute: true",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Path format validation: xcodebuild",
+      "passed": true,
+      "details": "Normalized: /usr/bin/xcodebuild, Absolute: true",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Path format validation: subl",
+      "passed": true,
+      "details": "Normalized: /Applications/Sublime Text.app/Contents/SharedSupport/bin/subl, Absolute: true",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Platform-specific path handling",
+      "passed": true,
+      "details": "All paths follow platform conventions",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Invalid editor ID handling",
+      "passed": true,
+      "details": "Correctly rejects invalid editor ID",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Missing command handling for Notepad++",
+      "passed": true,
+      "details": "Correctly identified Notepad++ as unavailable on darwin",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Non-existent path handling",
+      "passed": true,
+      "details": "Correctly identifies non-existent path: /path/that/definitely/does/not/exist/editor",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Error handling summary",
+      "passed": true,
+      "details": "All error scenarios handled correctly",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "Cross-platform compatibility coverage",
+      "passed": true,
+      "details": "11/15 (73.3%) platform-editor combinations supported",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "darwin platform coverage",
+      "passed": true,
+      "details": "4/5 (80.0%) editors available",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "win32 platform coverage",
+      "passed": true,
+      "details": "4/5 (80.0%) editors available",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    },
+    {
+      "name": "linux platform coverage",
+      "passed": true,
+      "details": "3/5 (60.0%) editors available",
+      "timestamp": "2025-12-21T16:04:43.047Z"
+    }
+  ]
+}
