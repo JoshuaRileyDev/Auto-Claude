@@ -201,9 +201,14 @@ export function Worktrees({ projectId }: WorktreesProps) {
     setEditorLoading(editor || 'default');
 
     try {
-      // For now, show a helpful message that the feature is coming soon
-      // The backend handlers have been implemented but need to be exposed to the frontend API
-      setError('Open in Editor feature is coming soon! Use "Copy Path" to access the worktree folder manually.');
+      const result = await window.electronAPI.openInEditor(task.id, editor);
+
+      if (result.success) {
+        // Success - editor launched
+        setError(null);
+      } else {
+        setError(result.error || 'Failed to open worktree in editor');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to open worktree in editor');
     } finally {

@@ -215,9 +215,11 @@ export function getSuggestedEditor(
   // If project type has an override, use it
   if (detection && projectTypeOverrides?.[detection.detectedType]) {
     const overrideEditor = projectTypeOverrides[detection.detectedType];
-    const editor = SUPPORTED_EDITORS.find(e => e.id === overrideEditor);
-    if (editor) {
-      return overrideEditor;
+    if (overrideEditor) {
+      const editor = SUPPORTED_EDITORS.find(e => e.id === overrideEditor);
+      if (editor) {
+        return overrideEditor;
+      }
     }
   }
 
