@@ -145,6 +145,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
         frontend_frameworks = {
             "next": {"name": "Next.js", "type": "frontend", "port": 3000},
             "nuxt": {"name": "Nuxt", "type": "frontend", "port": 3000},
+            "expo": {"name": "Expo", "type": "mobile", "port": 8081},
+            "react-native": {"name": "React Native", "type": "mobile", "port": 8081},
             "react": {"name": "React", "type": "frontend", "port": 3000},
             "vue": {"name": "Vue", "type": "frontend", "port": 5173},
             "svelte": {"name": "Svelte", "type": "frontend", "port": 5173},
@@ -185,6 +187,10 @@ class FrameworkAnalyzer(BaseAnalyzer):
                     detected_port = port_detector.detect_port_from_sources(info["port"])
                     self.analysis["default_port"] = detected_port
                     break
+
+        # Mobile app flags
+        if "expo" in deps_lower:
+            self.analysis["is_expo"] = True
 
         # Build tool
         if "vite" in deps_lower:
@@ -337,6 +343,12 @@ class FrameworkAnalyzer(BaseAnalyzer):
             elif "AppKit" in imports:
                 self.analysis["framework"] = "AppKit"
                 self.analysis["type"] = "desktop"
+
+            # Capture xcodeproj path for IPC handlers
+            xcodeproj_files = list(self.path.glob("*.xcodeproj"))
+            if xcodeproj_files:
+                # Store relative path from service root
+                self.analysis["xcodeproj_path"] = xcodeproj_files[0].name
 
             # Detect iOS/Apple frameworks
             apple_frameworks = []

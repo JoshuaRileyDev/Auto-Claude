@@ -20,7 +20,8 @@ import {
   Sparkles,
   GitBranch,
   HelpCircle,
-  Wrench
+  Wrench,
+  Smartphone
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -50,9 +51,9 @@ import { AddProjectModal } from './AddProjectModal';
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
-import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig } from '../../shared/types';
+import type { Project, AutoBuildVersionInfo, GitStatus, ProjectEnvConfig, ProjectIndex } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools' | 'manage-app';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -93,6 +94,11 @@ const gitlabNavItems: NavItem[] = [
   { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
 ];
 
+// Mobile app nav items shown when project has mobile services
+const mobileNavItems: NavItem[] = [
+  { id: 'manage-app', labelKey: 'navigation:items.manageApp', icon: Smartphone, shortcut: 'X' }
+];
+
 export function Sidebar({
   onSettingsClick,
   onNewTaskClick,
@@ -112,6 +118,7 @@ export function Sidebar({
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
+  const [projectIndex, setProjectIndex] = useState<ProjectIndex | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -136,7 +143,28 @@ export function Sidebar({
     loadEnvConfig();
   }, [selectedProject?.id, selectedProject?.autoBuildPath]);
 
-  // Compute visible nav items based on GitHub/GitLab enabled state
+  // Load project index when project changes to check for mobile services
+  useEffect(() => {
+    const loadProjectIndex = async () => {
+      if (selectedProject?.id) {
+        try {
+          const result = await window.electronAPI.getProjectContext(selectedProject.id);
+          if (result.success && result.data?.projectIndex) {
+            setProjectIndex(result.data.projectIndex);
+          } else {
+            setProjectIndex(null);
+          }
+        } catch {
+          setProjectIndex(null);
+        }
+      } else {
+        setProjectIndex(null);
+      }
+    };
+    loadProjectIndex();
+  }, [selectedProject?.id]);
+
+  // Compute visible nav items based on GitHub/GitLab enabled state and mobile services
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
 
@@ -148,8 +176,14 @@ export function Sidebar({
       items.push(...gitlabNavItems);
     }
 
+    // Show Manage App tab if project has mobile services
+    if (projectIndex?.services &&
+        Object.values(projectIndex.services).some(s => s.type === 'mobile')) {
+      items.push(...mobileNavItems);
+    }
+
     return items;
-  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled]);
+  }, [envConfig?.githubEnabled, envConfig?.gitlabEnabled, projectIndex]);
 
   // Keyboard shortcuts
   useEffect(() => {

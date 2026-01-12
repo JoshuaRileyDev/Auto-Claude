@@ -470,3 +470,36 @@ export interface RoadmapProviderConfig {
  * Canny-specific status values
  */
 export type CannyStatus = 'open' | 'under review' | 'planned' | 'in progress' | 'complete' | 'closed';
+
+// ============================================
+// Xcode Integration Types
+// ============================================
+
+/**
+ * Xcode project information for a mobile service
+ */
+export interface XcodeServiceInfo {
+  serviceName: string;
+  servicePath: string;
+  xcodeProjectPath: string;
+  bundleIdentifier: string;
+  version: string;
+  buildNumber: string;
+}
+
+/**
+ * Complete Xcode project info (may contain multiple services)
+ */
+export interface XcodeProjectInfo {
+  services: XcodeServiceInfo[];
+}
+
+/**
+ * Update payload for Xcode project settings
+ */
+export interface XcodeProjectUpdate {
+  serviceName: string;
+  bundleIdentifier?: string;
+  version?: string;
+  buildNumber?: string;
+}

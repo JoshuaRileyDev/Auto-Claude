@@ -70,6 +70,9 @@ export interface ServiceInfo {
   // iOS/Swift specific
   apple_frameworks?: string[];
   spm_dependencies?: string[];
+  // Mobile app specific
+  is_expo?: boolean;
+  xcodeproj_path?: string;
   dockerfile?: string;
   consumes?: string[];
   environment?: {

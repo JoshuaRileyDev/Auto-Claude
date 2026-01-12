@@ -11,7 +11,9 @@ import type {
   InfrastructureStatus,
   GraphitiValidationResult,
   GraphitiConnectionTestResult,
-  GitStatus
+  GitStatus,
+  XcodeProjectInfo,
+  XcodeProjectUpdate
 } from '../../shared/types';
 
 // Tab state interface (persisted in main process)
@@ -138,6 +140,10 @@ export interface ProjectAPI {
     status: 'completed' | 'failed';
     output: string[];
   }>>;
+
+  // Xcode Project Management
+  getXcodeProjectInfo: (projectId: string) => Promise<IPCResult<XcodeProjectInfo>>;
+  updateXcodeProject: (projectId: string, updates: XcodeProjectUpdate) => Promise<IPCResult>;
 }
 
 export const createProjectAPI = (): ProjectAPI => ({
@@ -294,5 +300,12 @@ export const createProjectAPI = (): ProjectAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_LIST_EMBEDDING_MODELS, baseUrl),
 
   pullOllamaModel: (modelName: string, baseUrl?: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_PULL_MODEL, modelName, baseUrl)
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_PULL_MODEL, modelName, baseUrl),
+
+  // Xcode Project Management
+  getXcodeProjectInfo: (projectId: string): Promise<IPCResult<XcodeProjectInfo>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XCODE_GET_PROJECT_INFO, projectId),
+
+  updateXcodeProject: (projectId: string, updates: XcodeProjectUpdate): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XCODE_UPDATE_PROJECT, projectId, updates)
 });
