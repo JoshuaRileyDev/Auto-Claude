@@ -210,13 +210,15 @@ export function ManageApp({ projectId }: ManageAppProps) {
             </Card>
           )}
 
-          {/* Target selector (if multiple targets in selected service) */}
-          {currentService && currentService.targets.length > 1 && (
+          {/* Target selector */}
+          {currentService && currentService.targets.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Select Target</CardTitle>
+                <CardTitle>Target</CardTitle>
                 <CardDescription>
-                  This service has multiple targets. Select which target to configure (e.g., main app, widget, watch app).
+                  {currentService.targets.length > 1
+                    ? 'Select which target to configure (e.g., main app, widget, watch app).'
+                    : 'The target being configured.'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
