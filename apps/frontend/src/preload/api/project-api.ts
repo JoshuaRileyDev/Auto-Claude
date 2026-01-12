@@ -148,6 +148,7 @@ export interface ProjectAPI {
   updateXcodeProject: (projectId: string, updates: XcodeProjectUpdate) => Promise<IPCResult>;
   generateAppIcon: (projectId: string, request: IconGenerationRequest) => Promise<IPCResult<IconGenerationResult>>;
   setAppIcon: (projectId: string, serviceName: string, iconPath: string) => Promise<IPCResult>;
+  getCurrentAppIcon: (projectId: string, serviceName: string) => Promise<IPCResult<string>>;
 }
 
 export const createProjectAPI = (): ProjectAPI => ({
@@ -317,5 +318,8 @@ export const createProjectAPI = (): ProjectAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.XCODE_GENERATE_ICON, projectId, request),
 
   setAppIcon: (projectId: string, serviceName: string, iconPath: string): Promise<IPCResult> =>
-    ipcRenderer.invoke(IPC_CHANNELS.XCODE_SET_ICON, projectId, serviceName, iconPath)
+    ipcRenderer.invoke(IPC_CHANNELS.XCODE_SET_ICON, projectId, serviceName, iconPath),
+
+  getCurrentAppIcon: (projectId: string, serviceName: string): Promise<IPCResult<string>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XCODE_GET_CURRENT_ICON, projectId, serviceName)
 });

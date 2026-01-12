@@ -513,5 +513,6 @@ export const IPC_CHANNELS = {
   XCODE_GET_PROJECT_INFO: 'xcode:getProjectInfo',
   XCODE_UPDATE_PROJECT: 'xcode:updateProject',
   XCODE_GENERATE_ICON: 'xcode:generateIcon',
-  XCODE_SET_ICON: 'xcode:setIcon'
+  XCODE_SET_ICON: 'xcode:setIcon',
+  XCODE_GET_CURRENT_ICON: 'xcode:getCurrentIcon'
 } as const;

@@ -166,6 +166,70 @@ export function registerIconHandlers(
   _getMainWindow: () => BrowserWindow | null
 ): void {
 
+  // Get current app icon
+  ipcMain.handle(
+    IPC_CHANNELS.XCODE_GET_CURRENT_ICON,
+    async (_, projectId: string, serviceName: string): Promise<IPCResult<string>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      try {
+        // Load project index to find service
+        const indexPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
+        if (!existsSync(indexPath)) {
+          return { success: false, error: 'Project index not found' };
+        }
+
+        const projectIndex = JSON.parse(readFileSync(indexPath, 'utf-8'));
+        const service = projectIndex.services?.[serviceName];
+
+        if (!service || service.type !== 'mobile') {
+          return { success: false, error: 'Service not found or not a mobile service' };
+        }
+
+        // Handle both relative and absolute service paths
+        let servicePath = service.path || '';
+        if (path.isAbsolute(servicePath)) {
+          servicePath = path.relative(project.path, servicePath);
+        }
+
+        // Find AppIcon in Assets.xcassets
+        const serviceDir = path.join(project.path, servicePath);
+        const appIconPath = path.join(serviceDir, 'Assets.xcassets', 'AppIcon.appiconset', 'Icon-1024.png');
+
+        if (existsSync(appIconPath)) {
+          return {
+            success: true,
+            data: appIconPath
+          };
+        }
+
+        // Try to find any icon
+        const appiconsetPath = path.join(serviceDir, 'Assets.xcassets', 'AppIcon.appiconset');
+        if (existsSync(appiconsetPath)) {
+          const files = require('fs').readdirSync(appiconsetPath);
+          const iconFile = files.find((f: string) => f.endsWith('.png'));
+          if (iconFile) {
+            return {
+              success: true,
+              data: path.join(appiconsetPath, iconFile)
+            };
+          }
+        }
+
+        return { success: false, error: 'No app icon found' };
+      } catch (error: any) {
+        console.error('Error getting current icon:', error);
+        return {
+          success: false,
+          error: error.message || 'Failed to get current icon'
+        };
+      }
+    }
+  );
+
   // Generate app icon (AI or upload)
   ipcMain.handle(
     IPC_CHANNELS.XCODE_GENERATE_ICON,

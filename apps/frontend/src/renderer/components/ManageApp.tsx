@@ -35,6 +35,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
   const [iconApiKey, setIconApiKey] = useState('');
   const [iconModel, setIconModel] = useState('openai/dall-e-3');
   const [generatedIconPath, setGeneratedIconPath] = useState<string | null>(null);
+  const [currentIconPath, setCurrentIconPath] = useState<string | null>(null);
   const [generatingIcon, setGeneratingIcon] = useState(false);
   const [settingIcon, setSettingIcon] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +44,28 @@ export function ManageApp({ projectId }: ManageAppProps) {
   useEffect(() => {
     loadProjectInfo();
   }, [projectId]);
+
+  // Load current icon when service changes
+  useEffect(() => {
+    if (selectedService) {
+      loadCurrentIcon();
+    }
+  }, [selectedService]);
+
+  const loadCurrentIcon = async () => {
+    if (!selectedService) return;
+
+    try {
+      const result = await window.electronAPI.getCurrentAppIcon(projectId, selectedService);
+      if (result.success && result.data) {
+        setCurrentIconPath(result.data);
+      } else {
+        setCurrentIconPath(null);
+      }
+    } catch (error) {
+      setCurrentIconPath(null);
+    }
+  };
 
   const loadProjectInfo = async () => {
     setLoading(true);
@@ -280,6 +303,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
         });
         setGeneratedIconPath(null);
         setIconPrompt('');
+        await loadCurrentIcon(); // Reload current icon
       } else {
         toast({
           title: 'Error',
@@ -349,9 +373,11 @@ export function ManageApp({ projectId }: ManageAppProps) {
 
       {/* Main content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          {/* Service selector (if multiple services) */}
-          {projectInfo.services.length > 1 && (
+        <div className="h-full max-w-7xl mx-auto">
+          {/* Selectors row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {/* Service selector (if multiple services) */}
+            {projectInfo.services.length > 1 && (
             <Card>
               <CardHeader>
                 <CardTitle>Select Service</CardTitle>
@@ -374,10 +400,10 @@ export function ManageApp({ projectId }: ManageAppProps) {
                 </Select>
               </CardContent>
             </Card>
-          )}
+            )}
 
-          {/* Target selector */}
-          {currentService && currentService.targets.length > 0 && (
+            {/* Target selector */}
+            {currentService && currentService.targets.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Target</CardTitle>
@@ -402,10 +428,13 @@ export function ManageApp({ projectId }: ManageAppProps) {
                 </Select>
               </CardContent>
             </Card>
-          )}
+            )}
+          </div>
 
-          {/* Configuration form */}
-          <Card>
+          {/* Main content grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Left column: Configuration form */}
+            <Card className="h-fit">
             <CardHeader>
               <CardTitle>App Configuration</CardTitle>
               <CardDescription>
@@ -498,20 +527,36 @@ export function ManageApp({ projectId }: ManageAppProps) {
                 )}
               </Button>
             </CardContent>
-          </Card>
+            </Card>
 
-          {/* App Icon Management */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                App Icon
-              </CardTitle>
-              <CardDescription>
-                Generate an app icon with AI or upload your own image
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            {/* Right column: App Icon Management */}
+            <Card className="h-fit">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5" />
+                  App Icon
+                </CardTitle>
+                <CardDescription>
+                  Generate an app icon with AI or upload your own image
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Current Icon Display */}
+                {currentIconPath && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Current App Icon</Label>
+                      <div className="flex items-center justify-center p-4 bg-muted rounded-lg">
+                        <img
+                          src={`file://${currentIconPath}`}
+                          alt="Current app icon"
+                          className="w-32 h-32 rounded-2xl shadow-lg"
+                        />
+                      </div>
+                    </div>
+                    <div className="border-t" />
+                  </>
+                )}
               {/* Method selection */}
               <div className="space-y-2">
                 <Label>Generation Method</Label>
@@ -654,41 +699,42 @@ export function ManageApp({ projectId }: ManageAppProps) {
 
               {/* Preview and Set Icon */}
               {generatedIconPath && (
-                <div className="space-y-2">
-                  <Label>Preview</Label>
-                  <div className="flex items-center gap-4">
+                <div className="space-y-3">
+                  <Label>Generated Icon Preview</Label>
+                  <div className="flex items-center justify-center p-4 bg-muted rounded-lg">
                     <img
                       src={`file://${generatedIconPath}`}
                       alt="Generated icon"
-                      className="w-24 h-24 rounded-lg border"
+                      className="w-32 h-32 rounded-2xl shadow-lg"
                     />
-                    <Button
-                      onClick={handleSetIcon}
-                      disabled={settingIcon}
-                      className="flex-1"
-                    >
-                      {settingIcon ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Setting Icon...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          Set as App Icon
-                        </>
-                      )}
-                    </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    This will replace all icon sizes in your Assets.xcassets/AppIcon.appiconset
+                  <Button
+                    onClick={handleSetIcon}
+                    disabled={settingIcon}
+                    className="w-full"
+                  >
+                    {settingIcon ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Setting Icon...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Set as App Icon
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    This will replace all icon sizes in Assets.xcassets
                   </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Info card */}
+          {/* Info card - full width */}
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">About These Settings</CardTitle>
