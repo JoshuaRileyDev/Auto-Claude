@@ -61,33 +61,41 @@ export function registerXcodeHandlers(
               const { parse } = require('@bacons/xcode/json');
               const pbxprojData = parse(readFileSync(pbxprojPath, 'utf-8'));
 
-              // Extract build settings from project configuration
+              // Extract build settings from target configuration (not project level)
               let bundleIdentifier = '';
               let version = '';
               let buildNumber = '';
 
-              // Find project configuration settings
-              const projects = pbxprojData.objects?.PBXProject || {};
-              const projectKeys = Object.keys(projects);
-              
-              if (projectKeys.length > 0) {
-                const project = projects[projectKeys[0]];
-                const configListRef = project?.buildConfigurationList;
-                
-                if (configListRef) {
-                  const configList = pbxprojData.objects?.XCConfigurationList?.[configListRef];
-                  const buildConfigurations = configList?.buildConfigurations || [];
-                  
-                  // Get first build configuration (usually "Release" or "Debug")
-                  if (buildConfigurations.length > 0) {
-                    const configRef = buildConfigurations[0];
-                    const config = pbxprojData.objects?.XCBuildConfiguration?.[configRef];
-                    
-                    if (config?.buildSettings) {
-                      bundleIdentifier = config.buildSettings.PRODUCT_BUNDLE_IDENTIFIER || '';
-                      version = config.buildSettings.MARKETING_VERSION || '';
-                      buildNumber = config.buildSettings.CURRENT_PROJECT_VERSION || '';
-                    }
+              // Find the main app target (first non-test target)
+              const targets = Object.entries(pbxprojData.objects || {})
+                .filter(([_, obj]: [string, any]) => obj.isa === 'PBXNativeTarget')
+                .filter(([_, obj]: [string, any]) => {
+                  // Exclude test targets
+                  const name = obj.name || '';
+                  return !name.endsWith('Tests') && !name.endsWith('UITests');
+                })
+                .map(([key, obj]: [string, any]) => ({ key, name: obj.name, configListRef: obj.buildConfigurationList }));
+
+              if (targets.length > 0) {
+                const mainTarget = targets[0];
+                const configList = pbxprojData.objects[mainTarget.configListRef];
+
+                if (configList?.buildConfigurations) {
+                  // Prefer Release configuration, fall back to first config
+                  let configRef = configList.buildConfigurations.find((ref: string) => {
+                    const config = pbxprojData.objects[ref];
+                    return config?.name === 'Release';
+                  });
+
+                  if (!configRef) {
+                    configRef = configList.buildConfigurations[0];
+                  }
+
+                  const config = pbxprojData.objects[configRef];
+                  if (config?.buildSettings) {
+                    bundleIdentifier = config.buildSettings.PRODUCT_BUNDLE_IDENTIFIER || '';
+                    version = config.buildSettings.MARKETING_VERSION || '';
+                    buildNumber = config.buildSettings.CURRENT_PROJECT_VERSION || '';
                   }
                 }
               }
@@ -203,10 +211,32 @@ export function registerXcodeHandlers(
         const { parse, build } = require('@bacons/xcode/json');
         const pbxprojData = parse(readFileSync(pbxprojPath, 'utf-8'));
 
-        // Update all build configurations
-        const buildConfigurations = pbxprojData.objects?.XCBuildConfiguration || {};
-        Object.values(buildConfigurations).forEach((config: any) => {
-          if (config.buildSettings) {
+        // Find the main app target (first non-test target)
+        const targets = Object.entries(pbxprojData.objects || {})
+          .filter(([_, obj]: [string, any]) => obj.isa === 'PBXNativeTarget')
+          .filter(([_, obj]: [string, any]) => {
+            // Exclude test targets
+            const name = obj.name || '';
+            return !name.endsWith('Tests') && !name.endsWith('UITests');
+          })
+          .map(([key, obj]: [string, any]) => ({ key, name: obj.name, configListRef: obj.buildConfigurationList }));
+
+        if (targets.length === 0) {
+          return { success: false, error: 'No main app target found in Xcode project' };
+        }
+
+        // Update configurations for the main target only
+        const mainTarget = targets[0];
+        const configList = pbxprojData.objects[mainTarget.configListRef];
+
+        if (!configList?.buildConfigurations) {
+          return { success: false, error: 'No build configurations found for target' };
+        }
+
+        // Update all configurations (Debug and Release) for the main target
+        configList.buildConfigurations.forEach((configRef: string) => {
+          const config = pbxprojData.objects[configRef];
+          if (config?.buildSettings) {
             if (updates.bundleIdentifier !== undefined) {
               config.buildSettings.PRODUCT_BUNDLE_IDENTIFIER = updates.bundleIdentifier;
             }
