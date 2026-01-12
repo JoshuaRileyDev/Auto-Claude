@@ -35,11 +35,18 @@ export function registerXcodeHandlers(
           .filter(([_, service]: [string, any]) => service.type === 'mobile' && service.xcodeproj_path)
           .map(([serviceName, service]: [string, any]) => {
             const xcodeProjectPath = service.xcodeproj_path;
-            
+
+            // Handle both relative and absolute service paths
+            let servicePath = service.path || '';
+            if (path.isAbsolute(servicePath)) {
+              // If service path is absolute, make it relative to project root
+              servicePath = path.relative(project.path, servicePath);
+            }
+
             // Construct path to project.pbxproj
             const pbxprojPath = path.join(
               project.path,
-              service.path || '',
+              servicePath,
               xcodeProjectPath,
               'project.pbxproj'
             );
@@ -173,10 +180,17 @@ export function registerXcodeHandlers(
           return { success: false, error: 'Xcode project path not found in service info' };
         }
 
+        // Handle both relative and absolute service paths
+        let servicePath = service.path || '';
+        if (path.isAbsolute(servicePath)) {
+          // If service path is absolute, make it relative to project root
+          servicePath = path.relative(project.path, servicePath);
+        }
+
         // Construct path to project.pbxproj
         const pbxprojPath = path.join(
           project.path,
-          service.path || '',
+          servicePath,
           xcodeProjectPath,
           'project.pbxproj'
         );
