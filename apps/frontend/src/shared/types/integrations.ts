@@ -476,15 +476,23 @@ export type CannyStatus = 'open' | 'under review' | 'planned' | 'in progress' | 
 // ============================================
 
 /**
+ * Xcode target information (e.g., main app, widget, watch app)
+ */
+export interface XcodeTargetInfo {
+  name: string;
+  bundleIdentifier: string;
+  version: string;
+  buildNumber: string;
+}
+
+/**
  * Xcode project information for a mobile service
  */
 export interface XcodeServiceInfo {
   serviceName: string;
   servicePath: string;
   xcodeProjectPath: string;
-  bundleIdentifier: string;
-  version: string;
-  buildNumber: string;
+  targets: XcodeTargetInfo[];
 }
 
 /**
@@ -499,6 +507,7 @@ export interface XcodeProjectInfo {
  */
 export interface XcodeProjectUpdate {
   serviceName: string;
+  targetName: string;
   bundleIdentifier?: string;
   version?: string;
   buildNumber?: string;

@@ -61,13 +61,8 @@ export function registerXcodeHandlers(
               const { parse } = require('@bacons/xcode/json');
               const pbxprojData = parse(readFileSync(pbxprojPath, 'utf-8'));
 
-              // Extract build settings from target configuration (not project level)
-              let bundleIdentifier = '';
-              let version = '';
-              let buildNumber = '';
-
-              // Find the main app target (first non-test target)
-              const targets = Object.entries(pbxprojData.objects || {})
+              // Find all non-test targets
+              const allTargets = Object.entries(pbxprojData.objects || {})
                 .filter(([_, obj]: [string, any]) => obj.isa === 'PBXNativeTarget')
                 .filter(([_, obj]: [string, any]) => {
                   // Exclude test targets
@@ -76,9 +71,13 @@ export function registerXcodeHandlers(
                 })
                 .map(([key, obj]: [string, any]) => ({ key, name: obj.name, configListRef: obj.buildConfigurationList }));
 
-              if (targets.length > 0) {
-                const mainTarget = targets[0];
-                const configList = pbxprojData.objects[mainTarget.configListRef];
+              // Extract settings for each target
+              const targetsInfo = allTargets.map(target => {
+                const configList = pbxprojData.objects[target.configListRef];
+
+                let bundleIdentifier = '';
+                let version = '';
+                let buildNumber = '';
 
                 if (configList?.buildConfigurations) {
                   // Prefer Release configuration, fall back to first config
@@ -98,15 +97,20 @@ export function registerXcodeHandlers(
                     buildNumber = config.buildSettings.CURRENT_PROJECT_VERSION || '';
                   }
                 }
-              }
+
+                return {
+                  name: target.name,
+                  bundleIdentifier,
+                  version,
+                  buildNumber
+                };
+              });
 
               return {
                 serviceName,
                 servicePath: service.path || '',
                 xcodeProjectPath,
-                bundleIdentifier,
-                version,
-                buildNumber
+                targets: targetsInfo
               };
             } catch (error: any) {
               console.error(`Failed to parse Xcode project: ${error.message}`);
@@ -211,8 +215,8 @@ export function registerXcodeHandlers(
         const { parse, build } = require('@bacons/xcode/json');
         const pbxprojData = parse(readFileSync(pbxprojPath, 'utf-8'));
 
-        // Find the main app target (first non-test target)
-        const targets = Object.entries(pbxprojData.objects || {})
+        // Find all non-test targets
+        const allTargets = Object.entries(pbxprojData.objects || {})
           .filter(([_, obj]: [string, any]) => obj.isa === 'PBXNativeTarget')
           .filter(([_, obj]: [string, any]) => {
             // Exclude test targets
@@ -221,13 +225,21 @@ export function registerXcodeHandlers(
           })
           .map(([key, obj]: [string, any]) => ({ key, name: obj.name, configListRef: obj.buildConfigurationList }));
 
-        if (targets.length === 0) {
-          return { success: false, error: 'No main app target found in Xcode project' };
+        if (allTargets.length === 0) {
+          return { success: false, error: 'No app targets found in Xcode project' };
         }
 
-        // Update configurations for the main target only
-        const mainTarget = targets[0];
-        const configList = pbxprojData.objects[mainTarget.configListRef];
+        // Find the specified target
+        const targetToUpdate = allTargets.find(t => t.name === updates.targetName);
+        if (!targetToUpdate) {
+          return {
+            success: false,
+            error: `Target "${updates.targetName}" not found. Available targets: ${allTargets.map(t => t.name).join(', ')}`
+          };
+        }
+
+        // Update configurations for the specified target only
+        const configList = pbxprojData.objects[targetToUpdate.configListRef];
 
         if (!configList?.buildConfigurations) {
           return { success: false, error: 'No build configurations found for target' };

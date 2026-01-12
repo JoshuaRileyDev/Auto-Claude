@@ -16,11 +16,12 @@ interface ManageAppProps {
 export function ManageApp({ projectId }: ManageAppProps) {
   const { t } = useTranslation(['navigation', 'common']);
   const { toast } = useToast();
-  
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [projectInfo, setProjectInfo] = useState<XcodeProjectInfo | null>(null);
   const [selectedService, setSelectedService] = useState<string>('');
+  const [selectedTarget, setSelectedTarget] = useState<string>('');
   const [formData, setFormData] = useState({
     bundleIdentifier: '',
     version: '',
@@ -41,11 +42,17 @@ export function ManageApp({ projectId }: ManageAppProps) {
         if (result.data.services.length > 0) {
           const firstService = result.data.services[0];
           setSelectedService(firstService.serviceName);
-          setFormData({
-            bundleIdentifier: firstService.bundleIdentifier,
-            version: firstService.version,
-            buildNumber: firstService.buildNumber
-          });
+
+          // Set first target as default
+          if (firstService.targets.length > 0) {
+            const firstTarget = firstService.targets[0];
+            setSelectedTarget(firstTarget.name);
+            setFormData({
+              bundleIdentifier: firstTarget.bundleIdentifier,
+              version: firstTarget.version,
+              buildNumber: firstTarget.buildNumber
+            });
+          }
         }
       } else {
         toast({
@@ -68,11 +75,26 @@ export function ManageApp({ projectId }: ManageAppProps) {
   const handleServiceChange = (serviceName: string) => {
     setSelectedService(serviceName);
     const service = projectInfo?.services.find(s => s.serviceName === serviceName);
-    if (service) {
+    if (service && service.targets.length > 0) {
+      const firstTarget = service.targets[0];
+      setSelectedTarget(firstTarget.name);
       setFormData({
-        bundleIdentifier: service.bundleIdentifier,
-        version: service.version,
-        buildNumber: service.buildNumber
+        bundleIdentifier: firstTarget.bundleIdentifier,
+        version: firstTarget.version,
+        buildNumber: firstTarget.buildNumber
+      });
+    }
+  };
+
+  const handleTargetChange = (targetName: string) => {
+    setSelectedTarget(targetName);
+    const service = projectInfo?.services.find(s => s.serviceName === selectedService);
+    const target = service?.targets.find(t => t.name === targetName);
+    if (target) {
+      setFormData({
+        bundleIdentifier: target.bundleIdentifier,
+        version: target.version,
+        buildNumber: target.buildNumber
       });
     }
   };
@@ -82,9 +104,10 @@ export function ManageApp({ projectId }: ManageAppProps) {
     try {
       const result = await window.electronAPI.updateXcodeProject(projectId, {
         serviceName: selectedService,
+        targetName: selectedTarget,
         ...formData
       });
-      
+
       if (result.success) {
         toast({
           title: 'Success',
@@ -187,6 +210,32 @@ export function ManageApp({ projectId }: ManageAppProps) {
             </Card>
           )}
 
+          {/* Target selector (if multiple targets in selected service) */}
+          {currentService && currentService.targets.length > 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Select Target</CardTitle>
+                <CardDescription>
+                  This service has multiple targets. Select which target to configure (e.g., main app, widget, watch app).
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select value={selectedTarget} onValueChange={handleTargetChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentService.targets.map(target => (
+                      <SelectItem key={target.name} value={target.name}>
+                        {target.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Configuration form */}
           <Card>
             <CardHeader>
@@ -239,18 +288,26 @@ export function ManageApp({ projectId }: ManageAppProps) {
               </div>
 
               {/* Current values display */}
-              {currentService && (
+              {currentService && selectedTarget && (
                 <div className="rounded-lg bg-muted p-4 space-y-1">
-                  <p className="text-sm font-medium">Current Values:</p>
-                  <p className="text-xs text-muted-foreground">
-                    Bundle ID: {currentService.bundleIdentifier}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Version: {currentService.version}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Build: {currentService.buildNumber}
-                  </p>
+                  <p className="text-sm font-medium">Current Values for {selectedTarget}:</p>
+                  {(() => {
+                    const target = currentService.targets.find(t => t.name === selectedTarget);
+                    if (!target) return null;
+                    return (
+                      <>
+                        <p className="text-xs text-muted-foreground">
+                          Bundle ID: {target.bundleIdentifier}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Version: {target.version}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Build: {target.buildNumber}
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
