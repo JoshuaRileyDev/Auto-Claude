@@ -512,3 +512,29 @@ export interface XcodeProjectUpdate {
   version?: string;
   buildNumber?: string;
 }
+
+/**
+ * App icon generation method
+ */
+export type IconGenerationMethod = 'openai' | 'openrouter' | 'upload';
+
+/**
+ * Icon generation request
+ */
+export interface IconGenerationRequest {
+  serviceName: string;
+  method: IconGenerationMethod;
+  prompt?: string; // For AI generation
+  apiKey?: string; // For OpenAI or OpenRouter
+  model?: string; // For OpenRouter model selection
+  imageData?: string; // Base64 encoded image for upload
+}
+
+/**
+ * Icon generation result
+ */
+export interface IconGenerationResult {
+  success: boolean;
+  imageUrl?: string; // Generated image URL or path
+  error?: string;
+}

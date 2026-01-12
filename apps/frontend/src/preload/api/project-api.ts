@@ -13,7 +13,9 @@ import type {
   GraphitiConnectionTestResult,
   GitStatus,
   XcodeProjectInfo,
-  XcodeProjectUpdate
+  XcodeProjectUpdate,
+  IconGenerationRequest,
+  IconGenerationResult
 } from '../../shared/types';
 
 // Tab state interface (persisted in main process)
@@ -144,6 +146,8 @@ export interface ProjectAPI {
   // Xcode Project Management
   getXcodeProjectInfo: (projectId: string) => Promise<IPCResult<XcodeProjectInfo>>;
   updateXcodeProject: (projectId: string, updates: XcodeProjectUpdate) => Promise<IPCResult>;
+  generateAppIcon: (projectId: string, request: IconGenerationRequest) => Promise<IPCResult<IconGenerationResult>>;
+  setAppIcon: (projectId: string, serviceName: string, iconPath: string) => Promise<IPCResult>;
 }
 
 export const createProjectAPI = (): ProjectAPI => ({
@@ -307,5 +311,11 @@ export const createProjectAPI = (): ProjectAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.XCODE_GET_PROJECT_INFO, projectId),
 
   updateXcodeProject: (projectId: string, updates: XcodeProjectUpdate): Promise<IPCResult> =>
-    ipcRenderer.invoke(IPC_CHANNELS.XCODE_UPDATE_PROJECT, projectId, updates)
+    ipcRenderer.invoke(IPC_CHANNELS.XCODE_UPDATE_PROJECT, projectId, updates),
+
+  generateAppIcon: (projectId: string, request: IconGenerationRequest): Promise<IPCResult<IconGenerationResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XCODE_GENERATE_ICON, projectId, request),
+
+  setAppIcon: (projectId: string, serviceName: string, iconPath: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.XCODE_SET_ICON, projectId, serviceName, iconPath)
 });

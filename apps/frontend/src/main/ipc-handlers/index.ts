@@ -34,6 +34,7 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerXcodeHandlers } from './xcode-handlers';
+import { registerIconHandlers } from './icon-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -122,6 +123,9 @@ export function setupIpcHandlers(
   // Xcode project management handlers
   registerXcodeHandlers(getMainWindow);
 
+  // App icon generation and management handlers
+  registerIconHandlers(getMainWindow);
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -149,5 +153,6 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerXcodeHandlers
+  registerXcodeHandlers,
+  registerIconHandlers
 };

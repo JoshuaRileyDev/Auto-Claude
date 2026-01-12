@@ -511,5 +511,7 @@ export const IPC_CHANNELS = {
 
   // Xcode project management
   XCODE_GET_PROJECT_INFO: 'xcode:getProjectInfo',
-  XCODE_UPDATE_PROJECT: 'xcode:updateProject'
+  XCODE_UPDATE_PROJECT: 'xcode:updateProject',
+  XCODE_GENERATE_ICON: 'xcode:generateIcon',
+  XCODE_SET_ICON: 'xcode:setIcon'
 } as const;

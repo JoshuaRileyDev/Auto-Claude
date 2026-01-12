@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Smartphone, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import { Smartphone, Save, RefreshCw, AlertCircle, Image as ImageIcon, Upload, Wand2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Textarea } from './ui/textarea';
 import { useToast } from '../hooks/use-toast';
-import type { XcodeProjectInfo, XcodeServiceInfo } from '../../shared/types';
+import type { XcodeProjectInfo, XcodeServiceInfo, IconGenerationMethod } from '../../shared/types';
 
 interface ManageAppProps {
   projectId: string;
@@ -27,6 +28,16 @@ export function ManageApp({ projectId }: ManageAppProps) {
     version: '',
     buildNumber: ''
   });
+
+  // Icon generation state
+  const [iconMethod, setIconMethod] = useState<IconGenerationMethod>('openai');
+  const [iconPrompt, setIconPrompt] = useState('');
+  const [iconApiKey, setIconApiKey] = useState('');
+  const [iconModel, setIconModel] = useState('openai/dall-e-3');
+  const [generatedIconPath, setGeneratedIconPath] = useState<string | null>(null);
+  const [generatingIcon, setGeneratingIcon] = useState(false);
+  const [settingIcon, setSettingIcon] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load project info on mount
   useEffect(() => {
@@ -129,6 +140,161 @@ export function ManageApp({ projectId }: ManageAppProps) {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGenerateIcon = async () => {
+    if (iconMethod !== 'upload' && !iconPrompt.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a prompt for icon generation',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (iconMethod !== 'upload' && !iconApiKey.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter an API key',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setGeneratingIcon(true);
+    try {
+      const result = await window.electronAPI.generateAppIcon(projectId, {
+        serviceName: selectedService,
+        method: iconMethod,
+        prompt: iconPrompt,
+        apiKey: iconApiKey,
+        model: iconModel
+      });
+
+      if (result.success && result.data?.imageUrl) {
+        setGeneratedIconPath(result.data.imageUrl);
+        toast({
+          title: 'Success',
+          description: 'Icon generated successfully'
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to generate icon',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to generate icon',
+        variant: 'destructive'
+      });
+    } finally {
+      setGeneratingIcon(false);
+    }
+  };
+
+  const handleUploadIcon = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Error',
+        description: 'Please select an image file',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setGeneratingIcon(true);
+    try {
+      // Read file as base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageData = e.target?.result as string;
+
+        const result = await window.electronAPI.generateAppIcon(projectId, {
+          serviceName: selectedService,
+          method: 'upload',
+          imageData
+        });
+
+        if (result.success && result.data?.imageUrl) {
+          setGeneratedIconPath(result.data.imageUrl);
+          toast({
+            title: 'Success',
+            description: 'Image uploaded successfully'
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: result.error || 'Failed to upload image',
+            variant: 'destructive'
+          });
+        }
+        setGeneratingIcon(false);
+      };
+
+      reader.onerror = () => {
+        toast({
+          title: 'Error',
+          description: 'Failed to read image file',
+          variant: 'destructive'
+        });
+        setGeneratingIcon(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to upload image',
+        variant: 'destructive'
+      });
+      setGeneratingIcon(false);
+    }
+  };
+
+  const handleSetIcon = async () => {
+    if (!generatedIconPath) {
+      toast({
+        title: 'Error',
+        description: 'Please generate or upload an icon first',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setSettingIcon(true);
+    try {
+      const result = await window.electronAPI.setAppIcon(projectId, selectedService, generatedIconPath);
+
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: 'App icon set successfully. Rebuild your app to see changes.'
+        });
+        setGeneratedIconPath(null);
+        setIconPrompt('');
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to set app icon',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to set app icon',
+        variant: 'destructive'
+      });
+    } finally {
+      setSettingIcon(false);
     }
   };
 
@@ -331,6 +497,194 @@ export function ManageApp({ projectId }: ManageAppProps) {
                   </>
                 )}
               </Button>
+            </CardContent>
+          </Card>
+
+          {/* App Icon Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                App Icon
+              </CardTitle>
+              <CardDescription>
+                Generate an app icon with AI or upload your own image
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Method selection */}
+              <div className="space-y-2">
+                <Label>Generation Method</Label>
+                <Select value={iconMethod} onValueChange={(value) => setIconMethod(value as IconGenerationMethod)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">
+                      <div className="flex items-center gap-2">
+                        <Wand2 className="h-4 w-4" />
+                        OpenAI DALL-E
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="openrouter">
+                      <div className="flex items-center gap-2">
+                        <Wand2 className="h-4 w-4" />
+                        OpenRouter
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="upload">
+                      <div className="flex items-center gap-2">
+                        <Upload className="h-4 w-4" />
+                        Upload Image
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* AI Generation Options */}
+              {iconMethod !== 'upload' && (
+                <>
+                  {/* Prompt */}
+                  <div className="space-y-2">
+                    <Label htmlFor="iconPrompt">Icon Description</Label>
+                    <Textarea
+                      id="iconPrompt"
+                      value={iconPrompt}
+                      onChange={(e) => setIconPrompt(e.target.value)}
+                      placeholder="A modern, minimalist icon for a fitness tracking app with a running shoe"
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Describe the icon you want to generate
+                    </p>
+                  </div>
+
+                  {/* API Key */}
+                  <div className="space-y-2">
+                    <Label htmlFor="iconApiKey">
+                      {iconMethod === 'openai' ? 'OpenAI API Key' : 'OpenRouter API Key'}
+                    </Label>
+                    <Input
+                      id="iconApiKey"
+                      type="password"
+                      value={iconApiKey}
+                      onChange={(e) => setIconApiKey(e.target.value)}
+                      placeholder={iconMethod === 'openai' ? 'sk-...' : 'sk-or-v1-...'}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {iconMethod === 'openai'
+                        ? 'Your OpenAI API key from platform.openai.com'
+                        : 'Your OpenRouter API key from openrouter.ai'}
+                    </p>
+                  </div>
+
+                  {/* Model selection for OpenRouter */}
+                  {iconMethod === 'openrouter' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="iconModel">Model</Label>
+                      <Select value={iconModel} onValueChange={setIconModel}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="openai/dall-e-3">DALL-E 3 (OpenAI)</SelectItem>
+                          <SelectItem value="stabilityai/stable-diffusion-xl">Stable Diffusion XL</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Generate button */}
+                  <Button
+                    onClick={handleGenerateIcon}
+                    disabled={generatingIcon}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    {generatingIcon ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Generate Icon
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+
+              {/* Upload Option */}
+              {iconMethod === 'upload' && (
+                <div className="space-y-2">
+                  <Label>Upload Image</Label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUploadIcon}
+                    className="hidden"
+                  />
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={generatingIcon}
+                    className="w-full"
+                    variant="outline"
+                  >
+                    {generatingIcon ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Choose Image
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Upload a square image (1024x1024 recommended). It will be automatically resized for all iOS icon sizes.
+                  </p>
+                </div>
+              )}
+
+              {/* Preview and Set Icon */}
+              {generatedIconPath && (
+                <div className="space-y-2">
+                  <Label>Preview</Label>
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={`file://${generatedIconPath}`}
+                      alt="Generated icon"
+                      className="w-24 h-24 rounded-lg border"
+                    />
+                    <Button
+                      onClick={handleSetIcon}
+                      disabled={settingIcon}
+                      className="flex-1"
+                    >
+                      {settingIcon ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Setting Icon...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Set as App Icon
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This will replace all icon sizes in your Assets.xcassets/AppIcon.appiconset
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
