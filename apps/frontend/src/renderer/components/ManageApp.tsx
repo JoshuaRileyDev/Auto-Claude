@@ -7,6 +7,7 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { useToast } from '../hooks/use-toast';
 import type { XcodeProjectInfo, XcodeServiceInfo, IconGenerationMethod } from '../../shared/types';
 
@@ -38,6 +39,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
   const [currentIconPath, setCurrentIconPath] = useState<string | null>(null);
   const [generatingIcon, setGeneratingIcon] = useState(false);
   const [settingIcon, setSettingIcon] = useState(false);
+  const [iconModalOpen, setIconModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load project info on mount
@@ -537,59 +539,62 @@ export function ManageApp({ projectId }: ManageAppProps) {
                   App Icon
                 </CardTitle>
                 <CardDescription>
-                  Generate an app icon with AI or upload your own image
+                  Manage your app's icon with AI generation or upload
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Current Icon Display */}
-                {currentIconPath && (
-                  <>
-                    <div className="space-y-2">
-                      <Label>Current App Icon</Label>
-                      <div className="flex items-center justify-center p-4 bg-muted rounded-lg">
-                        <img
-                          src={`file://${currentIconPath}`}
-                          alt="Current app icon"
-                          className="w-32 h-32 rounded-2xl shadow-lg"
-                        />
-                      </div>
+                <div className="space-y-3">
+                  <Label>Current App Icon</Label>
+                  {currentIconPath ? (
+                    <div className="flex items-center justify-center p-6 bg-muted rounded-lg">
+                      <img
+                        src={`file://${currentIconPath}`}
+                        alt="Current app icon"
+                        className="w-32 h-32 rounded-2xl shadow-lg"
+                      />
                     </div>
-                    <div className="border-t" />
-                  </>
-                )}
-              {/* Method selection */}
-              <div className="space-y-2">
-                <Label>Generation Method</Label>
-                <Select value={iconMethod} onValueChange={(value) => setIconMethod(value as IconGenerationMethod)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">
-                      <div className="flex items-center gap-2">
-                        <Wand2 className="h-4 w-4" />
-                        OpenAI DALL-E
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="openrouter">
-                      <div className="flex items-center gap-2">
-                        <Wand2 className="h-4 w-4" />
-                        OpenRouter
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="upload">
-                      <div className="flex items-center gap-2">
-                        <Upload className="h-4 w-4" />
-                        Upload Image
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-6 bg-muted rounded-lg border-2 border-dashed">
+                      <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground">No icon found</p>
+                    </div>
+                  )}
+                </div>
 
-              {/* AI Generation Options */}
-              {iconMethod !== 'upload' && (
-                <>
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Dialog open={iconModalOpen} onOpenChange={setIconModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full">
+                        <Wand2 className="h-4 w-4 mr-2" />
+                        Generate with AI
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Generate App Icon</DialogTitle>
+                        <DialogDescription>
+                          Use AI to generate a custom app icon from your description
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4 py-4">
+                        {/* AI Provider Selection */}
+                        <div className="space-y-2">
+                          <Label>AI Provider</Label>
+                          <Select value={iconMethod === 'upload' ? 'openai' : iconMethod} onValueChange={(value) => setIconMethod(value as IconGenerationMethod)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="openai">OpenAI DALL-E 3</SelectItem>
+                              <SelectItem value="openrouter">OpenRouter</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* AI Generation Options */}
                   {/* Prompt */}
                   <div className="space-y-2">
                     <Label htmlFor="iconPrompt">Icon Description</Label>
@@ -640,32 +645,78 @@ export function ManageApp({ projectId }: ManageAppProps) {
                     </div>
                   )}
 
-                  {/* Generate button */}
-                  <Button
-                    onClick={handleGenerateIcon}
-                    disabled={generatingIcon}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    {generatingIcon ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="h-4 w-4 mr-2" />
-                        Generate Icon
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
+                        {/* Generate button */}
+                        <Button
+                          onClick={handleGenerateIcon}
+                          disabled={generatingIcon}
+                          className="w-full"
+                        >
+                          {generatingIcon ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="h-4 w-4 mr-2" />
+                              Generate Icon
+                            </>
+                          )}
+                        </Button>
 
-              {/* Upload Option */}
-              {iconMethod === 'upload' && (
-                <div className="space-y-2">
-                  <Label>Upload Image</Label>
+                        {/* Preview and Set Icon */}
+                        {generatedIconPath && (
+                          <>
+                            <div className="border-t" />
+                            <div className="space-y-3">
+                              <Label>Generated Icon Preview</Label>
+                              <div className="flex items-center justify-center p-4 bg-muted rounded-lg">
+                                <img
+                                  src={`file://${generatedIconPath}`}
+                                  alt="Generated icon"
+                                  className="w-32 h-32 rounded-2xl shadow-lg"
+                                />
+                              </div>
+                              <Button
+                                onClick={() => {
+                                  handleSetIcon();
+                                  setIconModalOpen(false);
+                                }}
+                                disabled={settingIcon}
+                                className="w-full"
+                              >
+                                {settingIcon ? (
+                                  <>
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                    Setting Icon...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="h-4 w-4 mr-2" />
+                                    Set as App Icon
+                                  </>
+                                )}
+                              </Button>
+                              <p className="text-xs text-muted-foreground text-center">
+                                This will replace all icon sizes in Assets.xcassets
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Upload Button */}
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={generatingIcon}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Image
+                  </Button>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -673,63 +724,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
                     onChange={handleUploadIcon}
                     className="hidden"
                   />
-                  <Button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={generatingIcon}
-                    className="w-full"
-                    variant="outline"
-                  >
-                    {generatingIcon ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-4 w-4 mr-2" />
-                        Choose Image
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Upload a square image (1024x1024 recommended). It will be automatically resized for all iOS icon sizes.
-                  </p>
                 </div>
-              )}
-
-              {/* Preview and Set Icon */}
-              {generatedIconPath && (
-                <div className="space-y-3">
-                  <Label>Generated Icon Preview</Label>
-                  <div className="flex items-center justify-center p-4 bg-muted rounded-lg">
-                    <img
-                      src={`file://${generatedIconPath}`}
-                      alt="Generated icon"
-                      className="w-32 h-32 rounded-2xl shadow-lg"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleSetIcon}
-                    disabled={settingIcon}
-                    className="w-full"
-                  >
-                    {settingIcon ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Setting Icon...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Set as App Icon
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    This will replace all icon sizes in Assets.xcassets
-                  </p>
-                </div>
-              )}
               </CardContent>
             </Card>
           </div>

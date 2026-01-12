@@ -197,28 +197,45 @@ export function registerIconHandlers(
 
         // Find AppIcon in Assets.xcassets
         const serviceDir = path.join(project.path, servicePath);
-        const appIconPath = path.join(serviceDir, 'Assets.xcassets', 'AppIcon.appiconset', 'Icon-1024.png');
 
-        if (existsSync(appIconPath)) {
-          return {
-            success: true,
-            data: appIconPath
-          };
-        }
+        // Try multiple possible locations
+        const possiblePaths = [
+          path.join(serviceDir, 'Assets.xcassets', 'AppIcon.appiconset'),
+          path.join(serviceDir, serviceName, 'Assets.xcassets', 'AppIcon.appiconset'),
+          path.join(project.path, 'Assets.xcassets', 'AppIcon.appiconset')
+        ];
 
-        // Try to find any icon
-        const appiconsetPath = path.join(serviceDir, 'Assets.xcassets', 'AppIcon.appiconset');
-        if (existsSync(appiconsetPath)) {
-          const files = require('fs').readdirSync(appiconsetPath);
-          const iconFile = files.find((f: string) => f.endsWith('.png'));
-          if (iconFile) {
-            return {
-              success: true,
-              data: path.join(appiconsetPath, iconFile)
-            };
+        console.log('[Icon Handler] Looking for AppIcon in:', possiblePaths);
+
+        for (const appiconsetPath of possiblePaths) {
+          if (existsSync(appiconsetPath)) {
+            console.log('[Icon Handler] Found AppIcon.appiconset at:', appiconsetPath);
+
+            // Try Icon-1024.png first
+            const icon1024 = path.join(appiconsetPath, 'Icon-1024.png');
+            if (existsSync(icon1024)) {
+              console.log('[Icon Handler] Found Icon-1024.png');
+              return {
+                success: true,
+                data: icon1024
+              };
+            }
+
+            // Try any PNG file
+            const files = require('fs').readdirSync(appiconsetPath);
+            console.log('[Icon Handler] Files in appiconset:', files);
+            const iconFile = files.find((f: string) => f.endsWith('.png'));
+            if (iconFile) {
+              console.log('[Icon Handler] Found icon file:', iconFile);
+              return {
+                success: true,
+                data: path.join(appiconsetPath, iconFile)
+              };
+            }
           }
         }
 
+        console.log('[Icon Handler] No app icon found');
         return { success: false, error: 'No app icon found' };
       } catch (error: any) {
         console.error('Error getting current icon:', error);
