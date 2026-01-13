@@ -360,7 +360,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
       <div className="border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Smartphone className="h-6 w-6 text-primary" />
             <div>
@@ -370,21 +370,39 @@ export function ManageApp({ projectId }: ManageAppProps) {
               </p>
             </div>
           </div>
-          <Button onClick={loadProjectInfo} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Target selector */}
+            {currentService && currentService.targets.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-muted-foreground whitespace-nowrap">Target:</Label>
+                <Select value={selectedTarget} onValueChange={handleTargetChange}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentService.targets.map(target => (
+                      <SelectItem key={target.name} value={target.name}>
+                        {target.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <Button onClick={loadProjectInfo} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 overflow-auto p-6">
         <div className="h-full max-w-7xl mx-auto">
-          {/* Selectors row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {/* Service selector (if multiple services) */}
-            {projectInfo.services.length > 1 && (
-            <Card>
+          {/* Service selector (if multiple services) */}
+          {projectInfo.services.length > 1 && (
+            <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Select Service</CardTitle>
                 <CardDescription>
@@ -406,36 +424,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
                 </Select>
               </CardContent>
             </Card>
-            )}
-
-            {/* Target selector */}
-            {currentService && currentService.targets.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Target</CardTitle>
-                <CardDescription>
-                  {currentService.targets.length > 1
-                    ? 'Select which target to configure (e.g., main app, widget, watch app).'
-                    : 'The target being configured.'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Select value={selectedTarget} onValueChange={handleTargetChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentService.targets.map(target => (
-                      <SelectItem key={target.name} value={target.name}>
-                        {target.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-            )}
-          </div>
+          )}
 
           {/* Main content grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -489,30 +478,6 @@ export function ManageApp({ projectId }: ManageAppProps) {
                   Integer that increments with each build
                 </p>
               </div>
-
-              {/* Current values display */}
-              {currentService && selectedTarget && (
-                <div className="rounded-lg bg-muted p-4 space-y-1">
-                  <p className="text-sm font-medium">Current Values for {selectedTarget}:</p>
-                  {(() => {
-                    const target = currentService.targets.find(t => t.name === selectedTarget);
-                    if (!target) return null;
-                    return (
-                      <>
-                        <p className="text-xs text-muted-foreground">
-                          Bundle ID: {target.bundleIdentifier}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Version: {target.version}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Build: {target.buildNumber}
-                        </p>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
 
               {/* Save button */}
               <Button 
@@ -732,24 +697,6 @@ export function ManageApp({ projectId }: ManageAppProps) {
               </CardContent>
             </Card>
           </div>
-
-          {/* Info card - full width */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">About These Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-2">
-              <p>
-                <strong>Bundle Identifier:</strong> Unique identifier for your app on the App Store. Cannot be changed after first submission.
-              </p>
-              <p>
-                <strong>Version Number:</strong> User-facing version (e.g., 1.0.0). Increment for each release.
-              </p>
-              <p>
-                <strong>Build Number:</strong> Internal build counter. Must be unique and increment with each upload to App Store Connect.
-              </p>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
