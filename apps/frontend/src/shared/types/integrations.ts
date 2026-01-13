@@ -535,6 +535,7 @@ export interface IconGenerationRequest {
  */
 export interface IconGenerationResult {
   success: boolean;
-  imageUrl?: string; // Generated image URL or path
+  imageUrl?: string; // File path for internal use
+  previewUrl?: string; // Base64 data URL for display
   error?: string;
 }

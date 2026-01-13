@@ -35,7 +35,8 @@ export function ManageApp({ projectId }: ManageAppProps) {
   const [iconPrompt, setIconPrompt] = useState('');
   const [iconApiKey, setIconApiKey] = useState('');
   const [iconModel, setIconModel] = useState('openai/dall-e-3');
-  const [generatedIconPath, setGeneratedIconPath] = useState<string | null>(null);
+  const [generatedIconPath, setGeneratedIconPath] = useState<string | null>(null); // File path for setIcon
+  const [generatedIconPreview, setGeneratedIconPreview] = useState<string | null>(null); // Data URL for display
   const [currentIconPath, setCurrentIconPath] = useState<string | null>(null);
   const [generatingIcon, setGeneratingIcon] = useState(false);
   const [settingIcon, setSettingIcon] = useState(false);
@@ -197,8 +198,9 @@ export function ManageApp({ projectId }: ManageAppProps) {
         model: iconModel
       });
 
-      if (result.success && result.data?.imageUrl) {
+      if (result.success && result.data?.imageUrl && result.data?.previewUrl) {
         setGeneratedIconPath(result.data.imageUrl);
+        setGeneratedIconPreview(result.data.previewUrl);
         toast({
           title: 'Success',
           description: 'Icon generated successfully'
@@ -248,8 +250,9 @@ export function ManageApp({ projectId }: ManageAppProps) {
           imageData
         });
 
-        if (result.success && result.data?.imageUrl) {
+        if (result.success && result.data?.imageUrl && result.data?.previewUrl) {
           setGeneratedIconPath(result.data.imageUrl);
+          setGeneratedIconPreview(result.data.previewUrl);
           toast({
             title: 'Success',
             description: 'Image uploaded successfully'
@@ -304,6 +307,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
           description: 'App icon set successfully. Rebuild your app to see changes.'
         });
         setGeneratedIconPath(null);
+        setGeneratedIconPreview(null);
         setIconPrompt('');
         await loadCurrentIcon(); // Reload current icon
       } else {
@@ -549,7 +553,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
                   {currentIconPath ? (
                     <div className="flex items-center justify-center p-6 bg-muted rounded-lg">
                       <img
-                        src={`file://${currentIconPath}`}
+                        src={currentIconPath}
                         alt="Current app icon"
                         className="w-32 h-32 rounded-2xl shadow-lg"
                       />
@@ -665,14 +669,14 @@ export function ManageApp({ projectId }: ManageAppProps) {
                         </Button>
 
                         {/* Preview and Set Icon */}
-                        {generatedIconPath && (
+                        {generatedIconPreview && (
                           <>
                             <div className="border-t" />
                             <div className="space-y-3">
                               <Label>Generated Icon Preview</Label>
                               <div className="flex items-center justify-center p-4 bg-muted rounded-lg">
                                 <img
-                                  src={`file://${generatedIconPath}`}
+                                  src={generatedIconPreview}
                                   alt="Generated icon"
                                   className="w-32 h-32 rounded-2xl shadow-lg"
                                 />

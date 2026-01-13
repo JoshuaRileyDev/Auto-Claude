@@ -179,7 +179,7 @@ function findAppIconSet(rootDir: string, maxDepth: number = 4): string | null {
       for (const entry of entries) {
         if (entry.isDirectory()) {
           // Skip common directories that won't contain app icons
-          const skipDirs = ['node_modules', '.git', 'build', 'dist', 'Pods', 'DerivedData', '.build'];
+          const skipDirs = ['node_modules', '.git', 'build', 'dist', 'Pods', 'DerivedData', '.build', '.worktrees'];
           if (skipDirs.includes(entry.name)) continue;
 
           const subPath = path.join(dir, entry.name);
@@ -242,25 +242,33 @@ export function registerIconHandlers(
         const appiconsetPath = findAppIconSet(serviceDir);
 
         if (appiconsetPath) {
+          let iconFilePath: string | null = null;
+
           // Try Icon-1024.png first
           const icon1024 = path.join(appiconsetPath, 'Icon-1024.png');
           if (existsSync(icon1024)) {
             console.log('[Icon Handler] Found Icon-1024.png');
-            return {
-              success: true,
-              data: icon1024
-            };
+            iconFilePath = icon1024;
+          } else {
+            // Try any PNG file
+            const files = readdirSync(appiconsetPath);
+            console.log('[Icon Handler] Files in appiconset:', files);
+            const iconFile = files.find((f: string) => f.endsWith('.png'));
+            if (iconFile) {
+              console.log('[Icon Handler] Found icon file:', iconFile);
+              iconFilePath = path.join(appiconsetPath, iconFile);
+            }
           }
 
-          // Try any PNG file
-          const files = readdirSync(appiconsetPath);
-          console.log('[Icon Handler] Files in appiconset:', files);
-          const iconFile = files.find((f: string) => f.endsWith('.png'));
-          if (iconFile) {
-            console.log('[Icon Handler] Found icon file:', iconFile);
+          if (iconFilePath) {
+            // Convert to base64 data URL
+            const imageBuffer = readFileSync(iconFilePath);
+            const base64 = imageBuffer.toString('base64');
+            const dataUrl = `data:image/png;base64,${base64}`;
+
             return {
               success: true,
-              data: path.join(appiconsetPath, iconFile)
+              data: dataUrl
             };
           }
         }
@@ -319,11 +327,17 @@ export function registerIconHandlers(
           );
         }
 
+        // Convert to base64 data URL for preview
+        const imageBuffer = readFileSync(iconPath);
+        const base64 = imageBuffer.toString('base64');
+        const dataUrl = `data:image/png;base64,${base64}`;
+
         return {
           success: true,
           data: {
             success: true,
-            imageUrl: iconPath
+            imageUrl: iconPath,  // Keep file path for setIcon operation
+            previewUrl: dataUrl   // Data URL for display
           }
         };
       } catch (error: any) {
