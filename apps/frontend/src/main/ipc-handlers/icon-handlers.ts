@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS } from '../../shared/constants';
 import type { IPCResult, IconGenerationRequest, IconGenerationResult } from '../../shared/types';
 import { projectStore } from '../project-store';
@@ -160,6 +160,45 @@ async function processIconForIOS(sourcePath: string, outputDir: string): Promise
 }
 
 /**
+ * Recursively search for Assets.xcassets/AppIcon.appiconset
+ */
+function findAppIconSet(rootDir: string, maxDepth: number = 4): string | null {
+  const search = (dir: string, depth: number): string | null => {
+    if (depth > maxDepth) return null;
+
+    try {
+      // Check if current directory contains Assets.xcassets/AppIcon.appiconset
+      const assetsPath = path.join(dir, 'Assets.xcassets', 'AppIcon.appiconset');
+      if (existsSync(assetsPath)) {
+        console.log('[Icon Handler] Found AppIcon.appiconset at:', assetsPath);
+        return assetsPath;
+      }
+
+      // Search subdirectories
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          // Skip common directories that won't contain app icons
+          const skipDirs = ['node_modules', '.git', 'build', 'dist', 'Pods', 'DerivedData', '.build'];
+          if (skipDirs.includes(entry.name)) continue;
+
+          const subPath = path.join(dir, entry.name);
+          const result = search(subPath, depth + 1);
+          if (result) return result;
+        }
+      }
+    } catch (error) {
+      // Skip directories we can't read
+      return null;
+    }
+
+    return null;
+  };
+
+  return search(rootDir, 0);
+}
+
+/**
  * Register icon generation handlers
  */
 export function registerIconHandlers(
@@ -195,47 +234,38 @@ export function registerIconHandlers(
           servicePath = path.relative(project.path, servicePath);
         }
 
-        // Find AppIcon in Assets.xcassets
+        // Start search from service directory
         const serviceDir = path.join(project.path, servicePath);
+        console.log('[Icon Handler] Searching for AppIcon starting from:', serviceDir);
 
-        // Try multiple possible locations
-        const possiblePaths = [
-          path.join(serviceDir, 'Assets.xcassets', 'AppIcon.appiconset'),
-          path.join(serviceDir, serviceName, 'Assets.xcassets', 'AppIcon.appiconset'),
-          path.join(project.path, 'Assets.xcassets', 'AppIcon.appiconset')
-        ];
+        // Use recursive search to find Assets.xcassets/AppIcon.appiconset
+        const appiconsetPath = findAppIconSet(serviceDir);
 
-        console.log('[Icon Handler] Looking for AppIcon in:', possiblePaths);
+        if (appiconsetPath) {
+          // Try Icon-1024.png first
+          const icon1024 = path.join(appiconsetPath, 'Icon-1024.png');
+          if (existsSync(icon1024)) {
+            console.log('[Icon Handler] Found Icon-1024.png');
+            return {
+              success: true,
+              data: icon1024
+            };
+          }
 
-        for (const appiconsetPath of possiblePaths) {
-          if (existsSync(appiconsetPath)) {
-            console.log('[Icon Handler] Found AppIcon.appiconset at:', appiconsetPath);
-
-            // Try Icon-1024.png first
-            const icon1024 = path.join(appiconsetPath, 'Icon-1024.png');
-            if (existsSync(icon1024)) {
-              console.log('[Icon Handler] Found Icon-1024.png');
-              return {
-                success: true,
-                data: icon1024
-              };
-            }
-
-            // Try any PNG file
-            const files = require('fs').readdirSync(appiconsetPath);
-            console.log('[Icon Handler] Files in appiconset:', files);
-            const iconFile = files.find((f: string) => f.endsWith('.png'));
-            if (iconFile) {
-              console.log('[Icon Handler] Found icon file:', iconFile);
-              return {
-                success: true,
-                data: path.join(appiconsetPath, iconFile)
-              };
-            }
+          // Try any PNG file
+          const files = readdirSync(appiconsetPath);
+          console.log('[Icon Handler] Files in appiconset:', files);
+          const iconFile = files.find((f: string) => f.endsWith('.png'));
+          if (iconFile) {
+            console.log('[Icon Handler] Found icon file:', iconFile);
+            return {
+              success: true,
+              data: path.join(appiconsetPath, iconFile)
+            };
           }
         }
 
-        console.log('[Icon Handler] No app icon found');
+        console.log('[Icon Handler] No app icon found in service directory');
         return { success: false, error: 'No app icon found' };
       } catch (error: any) {
         console.error('Error getting current icon:', error);
@@ -345,19 +375,21 @@ export function registerIconHandlers(
           servicePath = path.relative(project.path, servicePath);
         }
 
-        // Find Assets.xcassets directory
+        // Start search from service directory
         const serviceDir = path.join(project.path, servicePath);
-        const assetsPath = path.join(serviceDir, 'Assets.xcassets');
+        console.log('[Icon Handler] Searching for Assets.xcassets starting from:', serviceDir);
 
-        if (!existsSync(assetsPath)) {
-          return { success: false, error: 'Assets.xcassets not found. Make sure your project has an asset catalog.' };
+        // Use recursive search to find Assets.xcassets/AppIcon.appiconset
+        const appiconsetPath = findAppIconSet(serviceDir);
+
+        if (!appiconsetPath) {
+          return { success: false, error: 'Assets.xcassets/AppIcon.appiconset not found. Make sure your project has an asset catalog.' };
         }
 
-        // Create/update AppIcon.appiconset
-        const appIconPath = path.join(assetsPath, 'AppIcon.appiconset');
+        console.log('[Icon Handler] Setting icon at:', appiconsetPath);
 
         // Process and copy icons
-        await processIconForIOS(iconPath, appIconPath);
+        await processIconForIOS(iconPath, appiconsetPath);
 
         console.log(`Successfully set app icon for ${serviceName}`);
         return { success: true };
