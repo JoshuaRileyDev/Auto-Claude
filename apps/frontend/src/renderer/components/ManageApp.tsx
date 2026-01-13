@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { useToast } from '../hooks/use-toast';
-import type { XcodeProjectInfo, XcodeServiceInfo, IconGenerationMethod } from '../../shared/types';
+import type { XcodeProjectInfo, XcodeServiceInfo } from '../../shared/types';
+import type { APIProfile } from '../../shared/types/profile';
 
 interface ManageAppProps {
   projectId: string;
@@ -31,9 +32,11 @@ export function ManageApp({ projectId }: ManageAppProps) {
   });
 
   // Icon generation state
-  const [iconMethod, setIconMethod] = useState<IconGenerationMethod>('openai');
+  const [iconMethod, setIconMethod] = useState<'openai' | 'openrouter' | 'upload'>('openai');
   const [iconPrompt, setIconPrompt] = useState('');
-  const [iconApiKey, setIconApiKey] = useState('');
+  const [changeRequest, setChangeRequest] = useState('');
+  const [apiProfiles, setApiProfiles] = useState<APIProfile[]>([]);
+  const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [iconModel, setIconModel] = useState('openai/dall-e-3');
   const [generatedIconPath, setGeneratedIconPath] = useState<string | null>(null); // File path for setIcon
   const [generatedIconPreview, setGeneratedIconPreview] = useState<string | null>(null); // Data URL for display
@@ -46,6 +49,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
   // Load project info on mount
   useEffect(() => {
     loadProjectInfo();
+    loadApiProfiles();
   }, [projectId]);
 
   // Load current icon when service changes
@@ -54,6 +58,29 @@ export function ManageApp({ projectId }: ManageAppProps) {
       loadCurrentIcon();
     }
   }, [selectedService]);
+
+  const loadApiProfiles = async () => {
+    try {
+      const result = await window.electronAPI.getAPIProfiles();
+      if (result.success && result.data) {
+        setApiProfiles(result.data.profiles);
+      }
+    } catch (error) {
+      console.error('Failed to load API profiles:', error);
+    }
+  };
+
+  // Helper function to find matching profile for current method
+  const getMatchingProfile = (method: 'openai' | 'openrouter'): APIProfile | null => {
+    if (method === 'openai') {
+      // Look for OpenAI profile (baseUrl contains 'openai.com')
+      return apiProfiles.find(p => p.baseUrl.toLowerCase().includes('openai.com')) || null;
+    } else if (method === 'openrouter') {
+      // Look for OpenRouter profile (baseUrl contains 'openrouter.ai')
+      return apiProfiles.find(p => p.baseUrl.toLowerCase().includes('openrouter.ai')) || null;
+    }
+    return null;
+  };
 
   const loadCurrentIcon = async () => {
     if (!selectedService) return;
@@ -170,7 +197,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
   };
 
   const handleGenerateIcon = async () => {
-    if (iconMethod !== 'upload' && !iconPrompt.trim()) {
+    if (!iconPrompt.trim()) {
       toast({
         title: 'Error',
         description: 'Please enter a prompt for icon generation',
@@ -179,13 +206,30 @@ export function ManageApp({ projectId }: ManageAppProps) {
       return;
     }
 
-    if (iconMethod !== 'upload' && !iconApiKey.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter an API key',
-        variant: 'destructive'
-      });
-      return;
+    // Try to find matching profile for current method
+    const matchingProfile = getMatchingProfile(iconMethod);
+    let apiKey = '';
+
+    if (matchingProfile) {
+      // Use API key from matching profile
+      apiKey = matchingProfile.apiKey;
+    } else {
+      // Use manual API key
+      if (!openaiApiKey.trim()) {
+        toast({
+          title: 'Error',
+          description: 'Please enter an API key or configure a profile in Settings',
+          variant: 'destructive'
+        });
+        return;
+      }
+      apiKey = openaiApiKey;
+    }
+
+    // Build prompt with change request if provided
+    let fullPrompt = iconPrompt;
+    if (changeRequest.trim()) {
+      fullPrompt = `${iconPrompt}\n\nChanges requested: ${changeRequest}`;
     }
 
     setGeneratingIcon(true);
@@ -193,8 +237,8 @@ export function ManageApp({ projectId }: ManageAppProps) {
       const result = await window.electronAPI.generateAppIcon(projectId, {
         serviceName: selectedService,
         method: iconMethod,
-        prompt: iconPrompt,
-        apiKey: iconApiKey,
+        prompt: fullPrompt,
+        apiKey,
         model: iconModel
       });
 
@@ -309,6 +353,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
         setGeneratedIconPath(null);
         setGeneratedIconPreview(null);
         setIconPrompt('');
+        setChangeRequest(''); // Clear change request
         await loadCurrentIcon(); // Reload current icon
       } else {
         toast({
@@ -552,7 +597,7 @@ export function ManageApp({ projectId }: ManageAppProps) {
                         {/* AI Provider Selection */}
                         <div className="space-y-2">
                           <Label>AI Provider</Label>
-                          <Select value={iconMethod === 'upload' ? 'openai' : iconMethod} onValueChange={(value) => setIconMethod(value as IconGenerationMethod)}>
+                          <Select value={iconMethod} onValueChange={(value) => setIconMethod(value as 'openai' | 'openrouter')}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
@@ -561,58 +606,67 @@ export function ManageApp({ projectId }: ManageAppProps) {
                               <SelectItem value="openrouter">OpenRouter</SelectItem>
                             </SelectContent>
                           </Select>
+                          {(() => {
+                            const matchingProfile = getMatchingProfile(iconMethod);
+                            return matchingProfile ? (
+                              <p className="text-xs text-muted-foreground">
+                                Using API key from profile: <span className="font-medium">{matchingProfile.name}</span>
+                              </p>
+                            ) : null;
+                          })()}
                         </div>
 
-                        {/* AI Generation Options */}
-                  {/* Prompt */}
-                  <div className="space-y-2">
-                    <Label htmlFor="iconPrompt">Icon Description</Label>
-                    <Textarea
-                      id="iconPrompt"
-                      value={iconPrompt}
-                      onChange={(e) => setIconPrompt(e.target.value)}
-                      placeholder="A modern, minimalist icon for a fitness tracking app with a running shoe"
-                      rows={3}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Describe the icon you want to generate
-                    </p>
-                  </div>
+                        {/* Prompt */}
+                        <div className="space-y-2">
+                          <Label htmlFor="iconPrompt">Icon Description</Label>
+                          <Textarea
+                            id="iconPrompt"
+                            value={iconPrompt}
+                            onChange={(e) => setIconPrompt(e.target.value)}
+                            placeholder="A modern, minimalist icon for a fitness tracking app with a running shoe"
+                            rows={3}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Describe the icon you want to generate
+                          </p>
+                        </div>
 
-                  {/* API Key */}
-                  <div className="space-y-2">
-                    <Label htmlFor="iconApiKey">
-                      {iconMethod === 'openai' ? 'OpenAI API Key' : 'OpenRouter API Key'}
-                    </Label>
-                    <Input
-                      id="iconApiKey"
-                      type="password"
-                      value={iconApiKey}
-                      onChange={(e) => setIconApiKey(e.target.value)}
-                      placeholder={iconMethod === 'openai' ? 'sk-...' : 'sk-or-v1-...'}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {iconMethod === 'openai'
-                        ? 'Your OpenAI API key from platform.openai.com'
-                        : 'Your OpenRouter API key from openrouter.ai'}
-                    </p>
-                  </div>
+                        {/* API Key (only show if no matching profile found) */}
+                        {!getMatchingProfile(iconMethod) && (
+                          <div className="space-y-2">
+                            <Label htmlFor="iconApiKey">
+                              {iconMethod === 'openai' ? 'OpenAI API Key' : 'OpenRouter API Key'}
+                            </Label>
+                            <Input
+                              id="iconApiKey"
+                              type="password"
+                              value={openaiApiKey}
+                              onChange={(e) => setOpenaiApiKey(e.target.value)}
+                              placeholder={iconMethod === 'openai' ? 'sk-...' : 'sk-or-v1-...'}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              {iconMethod === 'openai'
+                                ? 'Your OpenAI API key from platform.openai.com. Or configure a profile in Settings.'
+                                : 'Your OpenRouter API key from openrouter.ai. Or configure a profile in Settings.'}
+                            </p>
+                          </div>
+                        )}
 
-                  {/* Model selection for OpenRouter */}
-                  {iconMethod === 'openrouter' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="iconModel">Model</Label>
-                      <Select value={iconModel} onValueChange={setIconModel}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="openai/dall-e-3">DALL-E 3 (OpenAI)</SelectItem>
-                          <SelectItem value="stabilityai/stable-diffusion-xl">Stable Diffusion XL</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                        {/* Model selection for OpenRouter */}
+                        {iconMethod === 'openrouter' && (
+                          <div className="space-y-2">
+                            <Label htmlFor="iconModel">Model</Label>
+                            <Select value={iconModel} onValueChange={setIconModel}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="openai/dall-e-3">DALL-E 3 (OpenAI)</SelectItem>
+                                <SelectItem value="stabilityai/stable-diffusion-xl">Stable Diffusion XL</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
 
                         {/* Generate button */}
                         <Button
@@ -646,6 +700,45 @@ export function ManageApp({ projectId }: ManageAppProps) {
                                   className="w-32 h-32 rounded-2xl shadow-lg"
                                 />
                               </div>
+
+                              {/* Request Changes */}
+                              <div className="space-y-2">
+                                <Label htmlFor="changeRequest">Request Changes (Optional)</Label>
+                                <Textarea
+                                  id="changeRequest"
+                                  value={changeRequest}
+                                  onChange={(e) => setChangeRequest(e.target.value)}
+                                  placeholder="Make the icon darker, add more detail to the center, etc."
+                                  rows={2}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Describe changes you'd like to make to this icon
+                                </p>
+                              </div>
+
+                              {/* Regenerate with changes button */}
+                              {changeRequest.trim() && (
+                                <Button
+                                  onClick={handleGenerateIcon}
+                                  disabled={generatingIcon}
+                                  variant="outline"
+                                  className="w-full"
+                                >
+                                  {generatingIcon ? (
+                                    <>
+                                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                      Regenerating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wand2 className="h-4 w-4 mr-2" />
+                                      Regenerate with Changes
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+
+                              {/* Set Icon button */}
                               <Button
                                 onClick={() => {
                                   handleSetIcon();
