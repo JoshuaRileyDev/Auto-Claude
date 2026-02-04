@@ -290,6 +290,17 @@ export const createProjectAPI = (): ProjectAPI => ({
   detectMainBranch: (projectPath: string): Promise<IPCResult<string | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_DETECT_MAIN_BRANCH, projectPath),
 
+  // Git branch operations
+  checkoutGitBranch: (projectPath: string, branch: string): Promise<IPCResult<{ branch: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_CHECKOUT_BRANCH, projectPath, branch),
+
+  createGitBranch: (
+    projectPath: string,
+    newBranch: string,
+    fromBranch?: string
+  ): Promise<IPCResult<{ branch: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_CREATE_BRANCH, projectPath, newBranch, fromBranch),
+
   checkGitStatus: (projectPath: string): Promise<IPCResult<GitStatus>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_CHECK_STATUS, projectPath),
 

@@ -34,6 +34,9 @@ import { getEffectiveSourcePath } from '../updater/path-resolver';
 // Git Helper Functions
 // ============================================
 
+// Branch name validation (same pattern used in task worktree handlers)
+const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+
 /**
  * Get list of git branches for a directory (both local and remote)
  */
@@ -231,6 +234,63 @@ function detectMainBranch(projectPath: string): string | null {
 
   // Fallback: return the first branch (usually the current one)
   return branches[0] || null;
+}
+
+function hasUncommittedChanges(projectPath: string): boolean {
+  try {
+    const out = execFileSync(getToolPath('git'), ['status', '--porcelain=v1'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return out.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function checkoutBranch(projectPath: string, branch: string): { ok: boolean; error?: string } {
+  if (!GIT_BRANCH_REGEX.test(branch)) {
+    return { ok: false, error: 'Invalid branch name' };
+  }
+  if (hasUncommittedChanges(projectPath)) {
+    return { ok: false, error: 'Uncommitted changes present. Please commit or stash before switching.' };
+  }
+  try {
+    try {
+      execFileSync(getToolPath('git'), ['switch', branch], { cwd: projectPath, encoding: 'utf-8' });
+    } catch {
+      execFileSync(getToolPath('git'), ['checkout', branch], { cwd: projectPath, encoding: 'utf-8' });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Failed to checkout branch' };
+  }
+}
+
+function createBranch(projectPath: string, newBranch: string, fromBranch?: string): { ok: boolean; error?: string } {
+  if (!GIT_BRANCH_REGEX.test(newBranch)) {
+    return { ok: false, error: 'Invalid new branch name' };
+  }
+  if (hasUncommittedChanges(projectPath)) {
+    return { ok: false, error: 'Uncommitted changes present. Please commit or stash before creating a branch.' };
+  }
+  try {
+    try {
+      execFileSync(getToolPath('git'), ['fetch', '--prune'], { cwd: projectPath, encoding: 'utf-8' });
+    } catch {}
+    const base = fromBranch && fromBranch.trim() ? fromBranch.trim() : undefined;
+    if (base && base.startsWith('origin/')) {
+      execFileSync(getToolPath('git'), ['checkout', '-b', newBranch, '--track', base], { cwd: projectPath, encoding: 'utf-8' });
+    } else if (base) {
+      execFileSync(getToolPath('git'), ['checkout', '-b', newBranch, base], { cwd: projectPath, encoding: 'utf-8' });
+    } else {
+      execFileSync(getToolPath('git'), ['checkout', '-b', newBranch], { cwd: projectPath, encoding: 'utf-8' });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Failed to create branch' };
+  }
 }
 
 const settingsPath = path.join(app.getPath('userData'), 'settings.json');
@@ -607,6 +667,50 @@ export function registerProjectHandlers(
         }
         const mainBranch = detectMainBranch(projectPath);
         return { success: true, data: mainBranch };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Checkout existing branch
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CHECKOUT_BRANCH,
+    async (_, projectPath: string, branch: string): Promise<IPCResult<{ branch: string }>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+        const result = checkoutBranch(projectPath, branch);
+        if (!result.ok) {
+          return { success: false, error: result.error || 'Failed to checkout branch' };
+        }
+        return { success: true, data: { branch } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Create a new branch and check it out
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CREATE_BRANCH,
+    async (_, projectPath: string, newBranch: string, fromBranch?: string): Promise<IPCResult<{ branch: string }>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+        const result = createBranch(projectPath, newBranch, fromBranch);
+        if (!result.ok) {
+          return { success: false, error: result.error || 'Failed to create branch' };
+        }
+        return { success: true, data: { branch: newBranch } };
       } catch (error) {
         return {
           success: false,

@@ -40,6 +40,8 @@ import {
   DialogHeader,
   DialogTitle
 } from './ui/dialog';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import { cn } from '../lib/utils';
 import {
   useProjectStore,
@@ -58,6 +60,7 @@ import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
 import { UpdateBanner } from './UpdateBanner';
 import type { Project, AutoBuildVersionInfo, GitStatus } from '../../shared/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
@@ -117,6 +120,14 @@ export function Sidebar({
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+
+  // Branch UI state
+  const [branches, setBranches] = useState<string[]>([]);
+  const [currentBranch, setCurrentBranch] = useState<string>('');
+  const [loadingBranches, setLoadingBranches] = useState<boolean>(false);
+  const [showCreateBranch, setShowCreateBranch] = useState<boolean>(false);
+  const [newBranchName, setNewBranchName] = useState<string>('');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -224,15 +235,64 @@ export function Sidebar({
               setShowGitSetupModal(true);
             }
           }
+          // Load branches/current after git status resolves
+          await refreshBranches();
         } catch (error) {
           console.error('Failed to check git status:', error);
         }
       } else {
         setGitStatus(null);
+        setBranches([]);
+        setCurrentBranch('');
       }
     };
     checkGit();
   }, [selectedProject]);
+
+  const refreshBranches = async () => {
+    if (!selectedProject) return;
+    setLoadingBranches(true);
+    try {
+      const [b, c] = await Promise.all([
+        window.electronAPI.getGitBranches(selectedProject.path),
+        window.electronAPI.getCurrentGitBranch(selectedProject.path)
+      ]);
+      if (b.success && b.data) setBranches(b.data);
+      if (c.success) setCurrentBranch(c.data || '');
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
+
+  const handleSelectBranch = async (value: string) => {
+    if (!selectedProject) return;
+    if (value === '__create__') {
+      setCreateError(null);
+      setNewBranchName('');
+      setShowCreateBranch(true);
+      return;
+    }
+    const result = await window.electronAPI.checkoutGitBranch(selectedProject.path, value);
+    if (!result.success) {
+      console.error('Failed to checkout branch:', result.error);
+      return;
+    }
+    setCurrentBranch(value);
+  };
+
+  const handleCreateBranch = async () => {
+    if (!selectedProject || !newBranchName.trim()) return;
+    setCreateError(null);
+    const res = await window.electronAPI.createGitBranch(selectedProject.path, newBranchName.trim(), currentBranch || undefined);
+    if (!res.success) {
+      setCreateError(res.error || 'Failed to create branch');
+      return;
+    }
+    setShowCreateBranch(false);
+    setNewBranchName('');
+    await refreshBranches();
+    setCurrentBranch(res.data?.branch || newBranchName.trim());
+  };
 
   const handleProjectAdded = (project: Project, needsInit: boolean) => {
     if (needsInit) {
@@ -387,6 +447,33 @@ export function Sidebar({
         </div>
 
         <Separator />
+
+        {/* Branch selector */}
+        {!isCollapsed && (
+          <div className={cn('px-3 py-2 border-b border-border space-y-2')}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <GitBranch className="h-4 w-4" />
+                <span>Branch</span>
+              </div>
+            </div>
+            <Select
+              value={currentBranch || ''}
+              onValueChange={handleSelectBranch}
+              disabled={!selectedProjectId || loadingBranches}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingBranches ? 'Loading…' : 'Select branch'} />
+              </SelectTrigger>
+              <SelectContent>
+                {branches.map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+                <SelectItem value="__create__">+ Create new branch…</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
@@ -556,6 +643,40 @@ export function Sidebar({
         gitStatus={gitStatus}
         onGitInitialized={handleGitInitialized}
       />
+
+      {/* Create Branch Dialog */}
+      <Dialog open={showCreateBranch} onOpenChange={setShowCreateBranch}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitBranch className="h-5 w-5" />
+              Create Branch
+            </DialogTitle>
+            <DialogDescription>
+              Create a new branch from {currentBranch || 'current HEAD'}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="branch-name">Branch name</Label>
+              <Input
+                id="branch-name"
+                autoFocus
+                placeholder="feature/sidebar-branch-switch"
+                value={newBranchName}
+                onChange={(e) => setNewBranchName(e.target.value)}
+              />
+            </div>
+            {createError && (
+              <p className="text-sm text-destructive">{createError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateBranch(false)}>Cancel</Button>
+            <Button onClick={handleCreateBranch} disabled={!newBranchName.trim()}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }

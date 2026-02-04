@@ -505,6 +505,8 @@ export const IPC_CHANNELS = {
   GIT_GET_BRANCHES_WITH_INFO: 'git:getBranchesWithInfo',
   GIT_GET_CURRENT_BRANCH: 'git:getCurrentBranch',
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
+  GIT_CHECKOUT_BRANCH: 'git:checkoutBranch',
+  GIT_CREATE_BRANCH: 'git:createBranch',
   GIT_CHECK_STATUS: 'git:checkStatus',
   GIT_INITIALIZE: 'git:initialize',
 
