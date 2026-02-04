@@ -249,12 +249,18 @@ function hasUncommittedChanges(projectPath: string): boolean {
   }
 }
 
-function checkoutBranch(projectPath: string, branch: string): { ok: boolean; error?: string } {
+function checkoutBranch(projectPath: string, branch: string): { ok: boolean; error?: string; stashCreated?: boolean } {
   if (!GIT_BRANCH_REGEX.test(branch)) {
     return { ok: false, error: 'Invalid branch name' };
   }
+  let stashCreated = false;
   if (hasUncommittedChanges(projectPath)) {
-    return { ok: false, error: 'Uncommitted changes present. Please commit or stash before switching.' };
+    try {
+      execFileSync(getToolPath('git'), ['stash', 'push', '-u', '-m', 'auto-claude-branch-switch'], { cwd: projectPath, encoding: 'utf-8' });
+      stashCreated = true;
+    } catch (e) {
+      return { ok: false, error: 'Failed to stash changes before switching branches' };
+    }
   }
   try {
     try {
@@ -262,18 +268,24 @@ function checkoutBranch(projectPath: string, branch: string): { ok: boolean; err
     } catch {
       execFileSync(getToolPath('git'), ['checkout', branch], { cwd: projectPath, encoding: 'utf-8' });
     }
-    return { ok: true };
+    return { ok: true, stashCreated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Failed to checkout branch' };
   }
 }
 
-function createBranch(projectPath: string, newBranch: string, fromBranch?: string): { ok: boolean; error?: string } {
+function createBranch(projectPath: string, newBranch: string, fromBranch?: string): { ok: boolean; error?: string; stashCreated?: boolean } {
   if (!GIT_BRANCH_REGEX.test(newBranch)) {
     return { ok: false, error: 'Invalid new branch name' };
   }
+  let stashCreated = false;
   if (hasUncommittedChanges(projectPath)) {
-    return { ok: false, error: 'Uncommitted changes present. Please commit or stash before creating a branch.' };
+    try {
+      execFileSync(getToolPath('git'), ['stash', 'push', '-u', '-m', 'auto-claude-branch-create'], { cwd: projectPath, encoding: 'utf-8' });
+      stashCreated = true;
+    } catch (e) {
+      return { ok: false, error: 'Failed to stash changes before creating branch' };
+    }
   }
   try {
     try {
@@ -287,7 +299,7 @@ function createBranch(projectPath: string, newBranch: string, fromBranch?: strin
     } else {
       execFileSync(getToolPath('git'), ['checkout', '-b', newBranch], { cwd: projectPath, encoding: 'utf-8' });
     }
-    return { ok: true };
+    return { ok: true, stashCreated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Failed to create branch' };
   }
@@ -679,7 +691,7 @@ export function registerProjectHandlers(
   // Checkout existing branch
   ipcMain.handle(
     IPC_CHANNELS.GIT_CHECKOUT_BRANCH,
-    async (_, projectPath: string, branch: string): Promise<IPCResult<{ branch: string }>> => {
+    async (_, projectPath: string, branch: string): Promise<IPCResult<{ branch: string; stashCreated?: boolean }>> => {
       try {
         if (!existsSync(projectPath)) {
           return { success: false, error: 'Directory does not exist' };
@@ -688,7 +700,7 @@ export function registerProjectHandlers(
         if (!result.ok) {
           return { success: false, error: result.error || 'Failed to checkout branch' };
         }
-        return { success: true, data: { branch } };
+        return { success: true, data: { branch, stashCreated: result.stashCreated } };
       } catch (error) {
         return {
           success: false,
@@ -701,7 +713,7 @@ export function registerProjectHandlers(
   // Create a new branch and check it out
   ipcMain.handle(
     IPC_CHANNELS.GIT_CREATE_BRANCH,
-    async (_, projectPath: string, newBranch: string, fromBranch?: string): Promise<IPCResult<{ branch: string }>> => {
+    async (_, projectPath: string, newBranch: string, fromBranch?: string): Promise<IPCResult<{ branch: string; stashCreated?: boolean }>> => {
       try {
         if (!existsSync(projectPath)) {
           return { success: false, error: 'Directory does not exist' };
@@ -710,7 +722,7 @@ export function registerProjectHandlers(
         if (!result.ok) {
           return { success: false, error: result.error || 'Failed to create branch' };
         }
-        return { success: true, data: { branch: newBranch } };
+        return { success: true, data: { branch: newBranch, stashCreated: result.stashCreated } };
       } catch (error) {
         return {
           success: false,

@@ -144,6 +144,7 @@ export function App() {
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
   const [isVersionWarningModalOpen, setIsVersionWarningModalOpen] = useState(false);
   const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
+  const [currentGitBranch, setCurrentGitBranch] = useState<string>('');
 
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -446,6 +447,39 @@ export function App() {
       });
     }
   }, [activeProjectId, selectedProjectId, selectedProject?.path, selectedProject?.name]);
+
+  // Track current git branch for filtering; poll lightly when project is selected
+  useEffect(() => {
+    let timer: number | undefined;
+    let cancelled = false;
+    const loadBranch = async () => {
+      const project = projects.find(p => p.id === (activeProjectId || selectedProjectId));
+      if (!project) {
+        setCurrentGitBranch('');
+        return;
+      }
+      try {
+        const res = await window.electronAPI.getCurrentGitBranch(project.path);
+        if (!cancelled && res.success) {
+          setCurrentGitBranch(res.data || '');
+        }
+      } catch {}
+    };
+    // initial
+    loadBranch();
+    // poll every 3s to reflect external switches
+    timer = window.setInterval(loadBranch, 3000) as unknown as number;
+    return () => {
+      cancelled = true;
+      if (timer) window.clearInterval(timer);
+    };
+  }, [activeProjectId, selectedProjectId, projects]);
+
+  // Filter tasks by branch: only show tasks whose metadata.baseBranch matches currentGitBranch
+  const filteredTasks = useMemo(() => {
+    if (!currentGitBranch) return tasks;
+    return tasks.filter(t => t.metadata?.baseBranch === currentGitBranch);
+  }, [tasks, currentGitBranch]);
 
   // Apply theme on load
   useEffect(() => {
@@ -876,7 +910,7 @@ export function App() {
               <>
                 {activeView === 'kanban' && (
                   <KanbanBoard
-                    tasks={tasks}
+                    tasks={filteredTasks}
                     onTaskClick={handleTaskClick}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
                     onRefresh={handleRefreshTasks}
